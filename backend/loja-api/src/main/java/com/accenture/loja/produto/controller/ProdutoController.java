@@ -38,4 +38,19 @@ public class ProdutoController {
     public ResponseEntity<ProdutoResponseDTO> buscarPorId(@PathVariable Long id) {
         return ResponseEntity.ok(produtoService.buscarPorId(id));
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ProdutoResponseDTO> atualizar(
+            @PathVariable Long id,
+            @RequestBody @Valid ProdutoRequestDTO request
+    ) {
+        ProdutoResponseDTO response = produtoService.atualizar(id, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> inativar(@PathVariable Long id) {
+        produtoService.inativar(id);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -94,4 +94,31 @@ public class ProdutoService {
                 produto.getAtivo()
         );
     }
+    
+    @Transactional
+    public ProdutoResponseDTO atualizar(Long id, ProdutoRequestDTO request) {
+        Produto produto = produtoRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado"));
+        
+        // atualiza o produto mantendo o mesmo SKU, mas bloqueia se tentar usar o SKU de outro produto.
+        if (!produto.getSku().equals(request.sku()) && produtoRepository.existsBySku(request.sku())) {
+            throw new IllegalArgumentException("SKU já cadastrado");
+        }
+
+        produto.setSku(request.sku());
+        produto.setNome(request.nome());
+        produto.setCategoria(request.categoria());
+        produto.setPreco(request.preco());
+        produto.setEstoque(request.estoque());
+
+        return toResponseDTO(produto);
+    }
+    
+    @Transactional
+    public void inativar(Long id) {
+        Produto produto = produtoRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado"));
+
+        produto.setAtivo(false);
+    }
 }
