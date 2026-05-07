@@ -1,6 +1,8 @@
 package com.accenture.loja.produto.controller;
 
 import com.accenture.loja.produto.dto.ProdutoRequestDTO;
+import com.accenture.loja.produto.dto.EstoqueRequestDTO;
+import com.accenture.loja.produto.dto.ProdutoRequestDTO;
 import com.accenture.loja.produto.dto.ProdutoResponseDTO;
 import com.accenture.loja.produto.service.ProdutoService;
 import jakarta.validation.Valid;
@@ -51,6 +53,24 @@ public class ProdutoController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> inativar(@PathVariable Long id) {
         produtoService.inativar(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/baixar-estoque")
+    public ResponseEntity<Void> baixarEstoque(
+            @PathVariable Long id,
+            @RequestBody @Valid EstoqueRequestDTO request
+    ) {
+        produtoService.baixarEstoque(id, request.quantidade());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/devolver-estoque")
+    public ResponseEntity<Void> devolverEstoque(
+            @PathVariable Long id,
+            @RequestBody @Valid EstoqueRequestDTO request
+    ) {
+        produtoService.devolverEstoque(id, request.quantidade());
         return ResponseEntity.noContent().build();
     }
 }
