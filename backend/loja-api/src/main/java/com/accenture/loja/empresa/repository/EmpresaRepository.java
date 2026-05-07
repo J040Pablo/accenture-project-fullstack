@@ -1,5 +1,9 @@
 package com.accenture.loja.empresa.repository;
 
-public class EmpresaRepository {
+import com.accenture.loja.empresa.model.Empresa;
+import org.springframework.data.jpa.repository.JpaRepository;
 
+public interface EmpresaRepository extends JpaRepository<Empresa, Long> {
+
+    boolean existsByCnpj(String cnpj);
 }
