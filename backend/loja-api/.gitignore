@@ -1,6 +1,15 @@
 HELP.md
+
+# Maven / Java
 target/
+**/target/
+*.exec
+*.class
+
+# Maven Wrapper
 .mvn/wrapper/maven-wrapper.jar
+
+# Permitir target somente se existir dentro de src
 !**/src/main/**/target/
 !**/src/test/**/target/
 
