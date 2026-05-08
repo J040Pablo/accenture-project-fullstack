@@ -91,11 +91,6 @@ public class ProdutoService {
         }
 
         int novoEstoque = produto.getEstoque() - quantidade;
-
-        if (novoEstoque < 0) {
-            throw new BusinessException("Estoque não pode ficar negativo");
-        }
-
         produto.setEstoque(novoEstoque);
     }
 
