@@ -1,10 +1,12 @@
 package com.accenture.loja.cliente.model;
 
+import com.accenture.loja.conta.model.ContaCorrente;
+import com.accenture.loja.endereco.model.Endereco;
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "tb_cliente")
+@Table(name = "clientes")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -12,19 +14,23 @@ import lombok.*;
 @Builder
 public class Cliente {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    @Column(nullable = false)
-    private String nome;
+	private String nome;
 
-    @Column(nullable = false, unique = true)
-    private String email;
+	@Column(unique = true)
+	private String cpf;
 
-    @Column(nullable = false, unique = true)
-    private String cpf;
+	@Column(unique = true)
+	private String email;
 
-    // Você pode adicionar outros campos conforme a necessidade do projeto,
-    // como telefone, endereço, etc.
+	@OneToOne(cascade = CascadeType.ALL)
+	@JoinColumn(name = "endereco_id")
+	private Endereco endereco;
+
+	@OneToOne(cascade = CascadeType.ALL)
+	@JoinColumn(name = "conta_corrente_id")
+	private ContaCorrente contaCorrente;
 }
