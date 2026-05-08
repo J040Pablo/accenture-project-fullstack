@@ -124,7 +124,7 @@ class EmpresaControllerTest {
     }
 
     @Test
-    void deveRetornarBadRequestQuandoBuscarPorIdInexistenteEquipeServiceLancarBusinessException() throws Exception {
+    void deveRetornarBadRequestQuandoBuscarPorIdInexistenteEServiceLancarBusinessException() throws Exception {
         doThrow(new BusinessException("Empresa não encontrada"))
                 .when(empresaService).buscarPorId(99L);
 
