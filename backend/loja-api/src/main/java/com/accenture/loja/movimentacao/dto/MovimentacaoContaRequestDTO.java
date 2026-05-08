@@ -4,18 +4,15 @@ import com.accenture.loja.shared.enums.TipoMovimentacao;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class MovimentacaoContaResponseDTO {
-    private Long id;
+public class MovimentacaoContaRequestDTO {
     private Long contaCorrenteId;
     private TipoMovimentacao tipoMovimentacao;
     private BigDecimal valor;
-    private LocalDateTime dataHora;
     private Long pedidoId;
 }
