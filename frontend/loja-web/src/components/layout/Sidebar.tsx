@@ -10,6 +10,7 @@ import {
   User
 } from 'lucide-react';
 import { cn } from '../../utils';
+import Logo from '../../assets/Logo.png';
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -55,27 +56,18 @@ export const Sidebar: React.FC = () => {
         )}
 
         <div
-          className={cn(
-            'flex items-center justify-center transform transition-transform duration-500 cursor-pointer',
-            isHovered ? 'rotate-180' : 'rotate-0'
-          )}
-        >
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M6 3L18 12L6 21"
-              stroke="#a100ff"
-              strokeWidth="3.5"
-              strokeLinecap="square"
-              strokeLinejoin="miter"
-            />
-          </svg>
-        </div>
+  className={cn(
+    'w-12 h-12 flex items-center justify-center transform transition-transform duration-500 cursor-pointer',
+    isHovered ? 'rotate-180' : 'rotate-0'
+  )}
+>
+  <img
+    src={Logo}
+    alt="Logo"
+    className="w-11 h-11 object-contain select-none pointer-events-none"
+    draggable={false}
+  />
+</div>
       </div>
 
       {/* Navigation Links */}
@@ -94,56 +86,47 @@ export const Sidebar: React.FC = () => {
         )}
 
         <div className="relative z-10 space-y-2">
-          {navItems.map((item) => {
-            const isActive =
-              item.path === '/'
-                ? location.pathname === '/'
-                : location.pathname.startsWith(item.path);
-
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  cn(
-                    'group flex items-center transition-all duration-300 h-10 relative',
-                    isHovered
-                      ? 'w-full rounded-full px-3 gap-3'
-                      : 'w-10 mx-auto rounded-full justify-center',
-                    isActive
-                      ? 'text-white'
-                      : 'text-slate-400 hover:text-slate-200'
-                  )
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <item.icon
-                      className={cn(
-                        'w-5 h-5 flex-shrink-0 transition-all duration-300',
-                        isActive
-                          ? 'text-white scale-110'
-                          : 'text-slate-400'
-                      )}
-                    />
-
-                    {isHovered && (
-                      <span
-                        className={cn(
-                          'font-medium whitespace-nowrap text-sm transition-colors duration-300',
-                          isActive
-                            ? 'text-white'
-                            : 'text-slate-400 group-hover:text-slate-200'
-                        )}
-                      >
-                        {item.name}
-                      </span>
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                cn(
+                  'group flex items-center transition-all duration-300 h-10 relative',
+                  isHovered
+                    ? 'w-full rounded-full px-3 gap-3'
+                    : 'w-10 mx-auto rounded-full justify-center',
+                  isActive
+                    ? 'text-white'
+                    : 'text-slate-400 hover:text-slate-200'
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <item.icon
+                    className={cn(
+                      'w-5 h-5 flex-shrink-0 transition-all duration-300',
+                      isActive ? 'text-white scale-110' : 'text-slate-400'
                     )}
-                  </>
-                )}
-              </NavLink>
-            );
-          })}
+                  />
+
+                  {isHovered && (
+                    <span
+                      className={cn(
+                        'font-medium whitespace-nowrap text-sm transition-colors duration-300',
+                        isActive
+                          ? 'text-white'
+                          : 'text-slate-400 group-hover:text-slate-200'
+                      )}
+                    >
+                      {item.name}
+                    </span>
+                  )}
+                </>
+              )}
+            </NavLink>
+          ))}
         </div>
       </nav>
 
