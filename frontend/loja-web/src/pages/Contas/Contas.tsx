@@ -8,17 +8,17 @@ import {
   Filter,
   HandCoins,
   Landmark,
-  ListOrdered,
   Minus,
   Plus,
   Search,
-  ShoppingBag,
   Sparkles,
   User,
   Wallet,
   ReceiptText
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type AccountView = 'overview' | 'detail';
 type AccountType = 'EMPRESA' | 'CLIENTE';
@@ -50,6 +50,8 @@ type Movement = {
   valor: string;
   pedidoRelacionado: string;
 };
+
+// ─── Mock Data ────────────────────────────────────────────────────────────────
 
 const customerAccounts: AccountSummary[] = [
   {
@@ -194,13 +196,15 @@ const movementsByAccount: Record<string, Movement[]> = {
   ]
 };
 
+// ─── Style helpers ────────────────────────────────────────────────────────────
+
 const movementStyles: Record<MovementType, string> = {
-  DEPOSITO: 'bg-[#064e3b] text-[#a7f3d0] border-[#10b981]',
-  SAQUE: 'bg-[#7f1d1d] text-[#fecaca] border-[#ef4444]',
-  PAGAMENTO_PEDIDO: 'bg-[#4a136f] text-[#e8c7ff] border-[#c000ff]',
-  CREDITO_EMPRESA: 'bg-[#1e3a8a] text-[#dbeafe] border-[#3b82f6]',
-  ESTORNO_PEDIDO: 'bg-[#581c87] text-[#f3e8ff] border-[#c084fc]',
-  DEBITO_EMPRESA: 'bg-[#7f1d1d] text-[#fecaca] border-[#ef4444]'
+  DEPOSITO: 'bg-[#a100ff]/10 text-[#d8b4fe] border-[#a100ff]/20',
+  SAQUE: 'bg-[#2a1118] text-[#d6a2b0] border-[#5a1f35]/40',
+  PAGAMENTO_PEDIDO: 'bg-[#151515] text-slate-200 border-[#3a3a3a]',
+  CREDITO_EMPRESA: 'bg-[#7c3aed]/10 text-[#c4b5fd] border-[#7c3aed]/20',
+  ESTORNO_PEDIDO: 'bg-[#1a1024] text-[#c4b5fd] border-[#5b21b6]/30',
+  DEBITO_EMPRESA: 'bg-[#2a1118] text-[#d6a2b0] border-[#5a1f35]/40'
 };
 
 const movementLabels: Record<MovementType, string> = {
@@ -212,13 +216,12 @@ const movementLabels: Record<MovementType, string> = {
   DEBITO_EMPRESA: 'Débito empresa'
 };
 
-const inputClassName =
-  'w-full bg-[#2a2a2a] h-12 rounded-full px-4 text-sm text-white placeholder-slate-400 border border-transparent focus:border-[#c000ff] focus:outline-none transition-colors';
-
 const accountTypeStyles: Record<AccountType, string> = {
-  EMPRESA: 'bg-[#4a136f] text-[#e8c7ff] border-[#5b148a]',
-  CLIENTE: 'bg-[#1e3a8a] text-[#dbeafe] border-[#3b82f6]'
+  EMPRESA: 'bg-[#a100ff]/10 text-[#d8b4fe] border-[#a100ff]/20',
+  CLIENTE: 'bg-[#111111] text-slate-400 border-[#2a2a2a]'
 };
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Contas() {
   const [view, setView] = useState<AccountView>('overview');
@@ -246,186 +249,195 @@ export default function Contas() {
   };
 
   const renderAccountChip = (type: AccountType) => (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-semibold ${accountTypeStyles[type]}`}>
+    <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[10px] font-bold tracking-widest ${accountTypeStyles[type]}`}>
       {type}
     </span>
   );
 
   const renderMovementChip = (type: MovementType) => (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[11px] font-semibold ${movementStyles[type]}`}>
+    <span className={`inline-flex items-center px-3 py-0.5 rounded-full border text-[10px] font-semibold tracking-tight ${movementStyles[type]}`}>
       {movementLabels[type]}
     </span>
   );
 
   const renderOverview = () => (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between gap-4 flex-col sm:flex-row">
+    <div className="space-y-8 max-w-6xl mx-auto pb-20">
+      
+      {/* 1. Header Premium */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-full bg-[#111111] border border-[#2a2a2a] flex items-center justify-center text-slate-300">
+            <div className="w-10 h-10 rounded-xl bg-[#0b0b0b] border border-[#2a2a2a] flex items-center justify-center text-[#a100ff]">
               <CreditCard className="w-5 h-5" />
             </div>
-            <h1 className="text-3xl font-bold text-white">Contas</h1>
+            <h1 className="text-3xl font-bold text-white tracking-tight">Contas</h1>
           </div>
-          <p className="text-slate-300">Visão geral das contas da empresa e dos clientes</p>
+          <p className="text-slate-400 text-sm">Visão geral das contas da empresa e dos clientes</p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-400 bg-[#1a1a1a] border border-[#2a2a2a] rounded-full px-4 py-2">
-          <Sparkles className="w-4 h-4 text-[#d482ff]" />
-          Saldo consolidado e extratos financeiros
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-[#0b0b0b] border border-[#2a2a2a] rounded-2xl">
+          <Sparkles className="w-4 h-4 text-[#a100ff]" />
+          <span className="text-xs font-bold text-slate-300 uppercase tracking-widest leading-none">Saldo consolidado e extratos</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="rounded-[20px] overflow-hidden bg-[#111111] border border-[#2a2a2a] shadow-xl shadow-black/20 p-5 lg:col-span-2">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-9 h-9 rounded-full bg-[#2a2a2a] flex items-center justify-center text-slate-300">
-                  <Building2 className="w-4 h-4" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* 2. Card Conta Empresa */}
+        <div className="rounded-[24px] overflow-hidden bg-[#0b0b0b] border border-[#2a2a2a] p-6 lg:col-span-2 shadow-2xl relative">
+          <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
+             <Landmark className="w-24 h-24 text-[#a100ff]" />
+          </div>
+
+          <div className="flex items-center justify-between gap-3 mb-8">
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-xl bg-[#111111] border border-[#2a2a2a] flex items-center justify-center text-slate-300">
+                  <Building2 className="w-5 h-5" />
                 </div>
-                <h2 className="text-white font-semibold text-lg">Conta da empresa</h2>
+                <h2 className="text-white font-bold text-xl tracking-tight">Conta da empresa</h2>
               </div>
-              <p className="text-xs text-slate-400">Saldo atual, total recebido e impacto nas operações</p>
+              <p className="text-xs text-slate-500 font-medium">Gestão de saldos operacionais e impactos em conta</p>
             </div>
 
             {renderAccountChip('EMPRESA')}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-2xl border border-[#2a2a2a] bg-[#151515] p-4">
-              <div className="text-xs text-slate-500 mb-2">Saldo atual</div>
-              <div className="text-2xl font-bold text-white">{companyAccount.saldo}</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="rounded-2xl border border-[#2a2a2a] bg-[#111111] p-5 hover:bg-[#151515] transition-colors">
+              <div className="text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Saldo disponível</div>
+              <div className="text-2xl font-black text-white">{companyAccount.saldo}</div>
             </div>
-            <div className="rounded-2xl border border-[#2a2a2a] bg-[#151515] p-4">
-              <div className="text-xs text-slate-500 mb-2">Total recebido</div>
-              <div className="text-2xl font-bold text-[#a7f3d0]">{companyAccount.totalRecebido}</div>
+            <div className="rounded-2xl border border-[#2a2a2a] bg-[#111111] p-5 hover:bg-[#151515] transition-colors">
+              <div className="text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Total acumulado</div>
+              <div className="text-2xl font-black text-[#c4b5fd]">{companyAccount.totalRecebido}</div>
             </div>
-            <div className="rounded-2xl border border-[#2a2a2a] bg-[#151515] p-4">
-              <div className="text-xs text-slate-500 mb-2">Conta</div>
-              <div className="text-lg font-semibold text-white">{companyAccount.numeroConta}</div>
-              <div className="text-xs text-slate-400 mt-1">Titular: {companyAccount.titular}</div>
+            <div className="rounded-2xl border border-[#2a2a2a] bg-[#111111] p-5 hover:bg-[#151515] transition-colors">
+              <div className="text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-widest">Número Identificador</div>
+              <div className="text-lg font-bold text-white font-mono">{companyAccount.numeroConta}</div>
+              <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tight mt-1">{companyAccount.titular}</div>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col sm:flex-row gap-3">
-            <Button className="bg-[#064e3b] hover:bg-[#0f766e] text-white rounded-full h-12 px-6">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button className="flex-1 sm:flex-initial h-12 px-6 rounded-xl bg-[#111111] border border-[#a100ff]/30 text-[#d8b4fe] font-bold hover:bg-[#a100ff]/10 hover:border-[#a100ff]/50 transition-all">
               <Plus className="w-4 h-4 mr-2" />
               Depositar
             </Button>
-            <Button className="bg-[#7f1d1d] hover:bg-[#991b1b] text-white rounded-full h-12 px-6">
+            <Button className="flex-1 sm:flex-initial h-12 px-6 rounded-xl bg-[#111111] border border-[#5a1f35]/40 text-[#d6a2b0] font-bold hover:bg-[#2a1118] hover:border-[#5a1f35]/60 transition-all">
               <Minus className="w-4 h-4 mr-2" />
               Sacar
             </Button>
-            <Button onClick={() => openAccountDetail('empresa')} className="bg-[#4a136f] hover:bg-[#5b148a] text-white rounded-full h-12 px-6">
-              Ver detalhes
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="flex-1 sm:flex-initial sm:ml-auto">
+              <Button onClick={() => openAccountDetail('empresa')} className="w-full sm:w-auto h-12 px-8 rounded-xl bg-[#a100ff] text-white font-black hover:bg-[#b833ff] shadow-lg shadow-[#a100ff]/20 transition-all">
+                Ver detalhes
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
           </div>
         </div>
 
-        <div className="rounded-[20px] overflow-hidden bg-[#111111] border border-[#2a2a2a] shadow-xl shadow-black/20 p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-full bg-[#2a2a2a] flex items-center justify-center text-slate-300">
-              <Wallet className="w-4 h-4" />
+        {/* 3. Card Resumo Rápido */}
+        <div className="rounded-[24px] overflow-hidden bg-[#0b0b0b] border border-[#2a2a2a] p-6 shadow-2xl flex flex-col">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-[#111111] border border-[#2a2a2a] flex items-center justify-center text-[#a100ff]">
+              <Wallet className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-white font-semibold">Resumo rápido</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Conferência da operação</p>
+              <h3 className="text-white font-bold text-base">Resumo Rápido</h3>
+              <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mt-0.5">Conferência da operação</p>
             </div>
           </div>
 
-          <div className="space-y-4 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-slate-400">Conta da empresa</span>
-              <span className="text-white font-medium">Ativa</span>
+          <div className="space-y-4 text-sm flex-1">
+            <div className="flex items-center justify-between py-2 border-b border-[#1a1a1a]">
+              <span className="text-slate-500 font-medium">Conta principal</span>
+              <span className="text-white font-bold tracking-tight">Ativa em Operação</span>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-slate-400">Contas de clientes</span>
-              <span className="text-white font-medium">{customerAccounts.length}</span>
+            <div className="flex items-center justify-between py-2 border-b border-[#1a1a1a]">
+              <span className="text-slate-500 font-medium tracking-tight">Carteiras gerenciadas</span>
+              <span className="text-[#d8b4fe] font-black">{customerAccounts.length} Clientes</span>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-slate-400">Entradas do dia</span>
-              <span className="text-[#a7f3d0] font-medium">R$ 434,90</span>
+            <div className="flex items-center justify-between py-2 border-b border-[#1a1a1a]">
+              <span className="text-slate-500 font-medium tracking-tight">Entradas (24h)</span>
+              <span className="text-[#c4b5fd] font-black">R$ 434,90</span>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-slate-400">Saídas do dia</span>
-              <span className="text-[#fecaca] font-medium">R$ 50,00</span>
+            <div className="flex items-center justify-between py-2 border-b border-[#1a1a1a]">
+              <span className="text-slate-500 font-medium tracking-tight">Saídas (24h)</span>
+              <span className="text-[#d6a2b0] font-black">R$ 50,00</span>
             </div>
           </div>
 
-          <div className="mt-5 rounded-2xl border border-[#2a2a2a] bg-[#151515] p-4 text-sm text-slate-300">
-            Mostre nesta área o saldo atual, total recebido e a leitura financeira da empresa.
+          <div className="mt-6 p-4 rounded-2xl border border-[#2a2a2a] bg-[#a100ff]/[0.02] text-[11px] text-slate-500 leading-relaxed italic">
+            Monitoramento em tempo real do caixa e extratos analíticos.
           </div>
         </div>
       </div>
 
-      <div className="rounded-[20px] overflow-hidden bg-[#111111] border border-[#2a2a2a] shadow-xl shadow-black/20">
-        <div className="p-5 border-b border-[#2a2a2a] flex items-center justify-between gap-3">
+      {/* 4. Tabela de Clientes */}
+      <div className="rounded-[24px] overflow-hidden bg-[#0b0b0b] border border-[#2a2a2a] shadow-2xl">
+        <div className="px-8 py-6 border-b border-[#1a1a1a] flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h2 className="text-white font-semibold text-lg">Clientes com conta</h2>
-            <p className="text-xs text-slate-400 mt-1">Número da conta, saldo e ações</p>
+            <h2 className="text-white font-bold text-xl tracking-tight">Lista de Carteiras</h2>
+            <p className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-widest">Controle de saldos e transações dos clientes</p>
           </div>
 
-          <div className="inline-flex items-center gap-2 px-4 h-11 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] text-slate-300 text-sm">
-            <Filter className="w-4 h-4" />
-            {customerAccounts.length} contas
-          </div>
-        </div>
-
-        <div className="p-5 border-b border-[#2a2a2a]">
-          <div className="flex w-full relative">
-            <input
-              type="text"
-              value={search}
-              onChange={event => setSearch(event.target.value)}
-              placeholder="Buscar cliente ou número da conta"
-              className="w-full h-12 bg-[#1a1a1a] rounded-full px-6 pr-14 text-slate-200 placeholder-slate-500 border border-transparent focus:border-[#c000ff] focus:outline-none transition-colors"
-            />
-            <button className="absolute right-0 top-0 h-12 w-12 bg-[#c000ff] rounded-full flex items-center justify-center hover:bg-opacity-90 transition-all border border-transparent focus:border-[#c000ff] outline-none focus:outline-none">
-              <Search className="w-5 h-5 text-white" />
-            </button>
+          <div className="flex items-center gap-4">
+             <div className="relative">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={event => setSearch(event.target.value)}
+                  placeholder="Titular ou Nº..."
+                  className="w-full h-11 bg-[#111111] rounded-xl px-4 pr-12 text-sm text-slate-200 placeholder-slate-700 border border-[#2a2a2a] focus:border-[#a100ff]/50 focus:outline-none transition-all"
+                />
+                <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+             </div>
+             <div className="flex items-center gap-2 px-4 h-11 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 text-[11px] font-bold uppercase tracking-widest">
+               <Filter className="w-3.5 h-3.5" />
+               {customerAccounts.length} CONTAS
+             </div>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
-              <tr className="text-slate-500 border-b border-[#2a2a2a] text-xs font-semibold uppercase">
-                <th className="font-medium p-5">Número da conta</th>
-                <th className="font-medium p-5">Titular</th>
-                <th className="font-medium p-5">Saldo</th>
-                <th className="font-medium p-5">Tipo</th>
-                <th className="font-medium p-5">Ações</th>
+              <tr className="text-slate-600 border-b border-[#1a1a1a] text-[10px] font-bold uppercase tracking-[0.15em] bg-[#0f0f0f]/40">
+                <th className="p-6">Identificador</th>
+                <th className="p-6">Detalhamento Titular</th>
+                <th className="p-6">Disponível em Conta</th>
+                <th className="p-6">Tipo</th>
+                <th className="p-6 text-right px-8">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#2a2a2a]">
+            <tbody className="divide-y divide-[#141414]">
               {filteredCustomerAccounts.map(account => (
-                <tr key={account.id} className="hover:bg-[#161616] transition-colors">
-                  <td className="p-5 font-medium text-slate-100">{account.numeroConta}</td>
-                  <td className="p-5 text-slate-300">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-[#2a2a2a] flex items-center justify-center text-slate-300">
-                        <User className="w-4 h-4" />
+                <tr key={account.id} className="group hover:bg-[#ffffff]/[0.01] transition-colors">
+                  <td className="p-6 font-mono text-xs font-bold text-slate-400 group-hover:text-white transition-colors">{account.numeroConta}</td>
+                  <td className="p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-[#111111] border border-[#2a2a2a] flex items-center justify-center text-slate-500 group-hover:border-[#a100ff]/30 transition-all">
+                        <User className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-white font-medium">{account.titular}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">Pedido relacionado: {account.pedidoRelacionado}</div>
+                        <div className="text-slate-200 font-bold text-sm tracking-tight group-hover:text-white transition-colors">{account.titular}</div>
+                        <div className="text-[10px] text-slate-600 font-bold uppercase mt-0.5">Último: <span className="text-[#a100ff]/60 tracking-tighter">{account.pedidoRelacionado}</span></div>
                       </div>
                     </div>
                   </td>
-                  <td className="p-5 font-semibold text-[#a7f3d0]">{account.saldo}</td>
-                  <td className="p-5">{renderAccountChip(account.tipo)}</td>
-                  <td className="p-5">
-                    <div className="flex flex-wrap gap-2">
+                  <td className="p-6 font-black text-white group-hover:text-[#c4b5fd] transition-colors">{account.saldo}</td>
+                  <td className="p-6">{renderAccountChip(account.tipo)}</td>
+                  <td className="p-6 text-right px-8">
+                    <div className="flex items-center gap-2 justify-end">
                       <Button
                         onClick={() => openAccountDetail(account.id)}
-                        className="bg-[#4a136f] hover:bg-[#5b148a] text-white rounded-full h-9 px-4 text-xs"
+                        className="bg-[#a100ff] text-white hover:bg-[#b833ff] rounded-lg h-8 px-4 text-[11px] font-bold transition-all shadow-lg shadow-[#a100ff]/10"
                       >
-                        Detalhes
+                        DETALHES
                       </Button>
-                      <Button className="bg-[#1e3a8a] hover:bg-[#2246a8] text-white rounded-full h-9 px-4 text-xs">
-                        Ver pedido
+                      <Button className="bg-[#111111] border border-[#2a2a2a] text-slate-400 hover:text-white hover:bg-[#151515] rounded-lg h-8 px-4 text-[11px] font-bold transition-all">
+                        PEDIDO
                       </Button>
                     </div>
                   </td>
@@ -439,87 +451,102 @@ export default function Contas() {
   );
 
   const renderDetail = () => (
-    <div className="space-y-6 max-w-6xl mx-auto pb-10">
-      <div className="flex items-center gap-3">
-        <Button onClick={() => setView('overview')} className="bg-[#1e1e1e] hover:bg-[#2a2a2a] text-white rounded-full h-11 px-4">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Voltar
-        </Button>
-        <div className="text-slate-400 text-sm">Contas → Detalhes da Conta</div>
+    <div className="space-y-8 max-w-6xl mx-auto pb-20 animate-in fade-in duration-700">
+      
+      {/* Detail Breadcrumb */}
+      <div className="flex items-center gap-4">
+        <button 
+          onClick={() => setView('overview')} 
+          className="w-11 h-11 rounded-xl bg-[#0b0b0b] border border-[#2a2a2a] flex items-center justify-center text-slate-400 hover:text-white hover:border-[#a100ff]/40 transition-all shadow-xl"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Detalhes do Extrato</h1>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-0.5">Painel analítico dE movimentações</p>
+        </div>
       </div>
 
-      <div className="rounded-[20px] overflow-hidden bg-[#111111] border border-[#2a2a2a] shadow-xl shadow-black/20">
-        <div className="bg-[#5b148a] px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h2 className="text-white font-semibold text-lg">Detalhes da conta</h2>
-            <p className="text-white/70 text-sm mt-0.5">Conta do cliente ou da empresa</p>
+      <div className="rounded-[24px] overflow-hidden bg-[#0b0b0b] border border-[#2a2a2a] shadow-2xl">
+        
+        {/* Header Detalhe */}
+        <div className="bg-[#0f0f0f] px-8 py-6 border-b border-[#1a1a1a] flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+             <div className="w-12 h-12 rounded-2xl bg-[#111111] border border-[#1a1a1a] flex items-center justify-center text-[#a100ff] shadow-inner">
+               <ReceiptText className="w-6 h-6" />
+             </div>
+             <div>
+               <h2 className="text-white font-bold text-xl tracking-tight">Conta #{selectedAccount.numeroConta}</h2>
+               <p className="text-xs text-slate-500 font-medium">Titular: <span className="text-slate-300 font-bold lowercase">@{selectedAccount.titular.toLowerCase().replace(" ", "")}</span></p>
+             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          
+          <div className="flex items-center gap-3">
             {renderAccountChip(selectedAccount.tipo)}
-            <span className="inline-flex items-center gap-2 text-xs text-white/80 bg-black/20 border border-white/10 px-3 py-1 rounded-full">
-              <ListOrdered className="w-4 h-4" />
-              {selectedAccount.numeroConta}
-            </span>
+            <div className="w-px h-8 bg-[#1a1a1a] mx-1 hidden sm:block" />
+            <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-[#111111] border border-[#2a2a2a]">
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Saldo</span>
+              <span className="text-lg font-black text-white">{selectedAccount.saldo}</span>
+            </div>
           </div>
         </div>
 
-        <div className="p-5 sm:p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="rounded-2xl border border-[#2a2a2a] bg-[#151515] p-5">
-              <div className="text-xs text-slate-500 mb-2">Número da conta</div>
-              <div className="text-white font-semibold">{selectedAccount.numeroConta}</div>
-            </div>
-            <div className="rounded-2xl border border-[#2a2a2a] bg-[#151515] p-5">
-              <div className="text-xs text-slate-500 mb-2">Tipo da conta</div>
-              <div className="text-white font-semibold">{selectedAccount.tipo}</div>
-            </div>
-            <div className="rounded-2xl border border-[#2a2a2a] bg-[#151515] p-5">
-              <div className="text-xs text-slate-500 mb-2">Titular</div>
-              <div className="text-white font-semibold">{selectedAccount.titular}</div>
-            </div>
-            <div className="rounded-2xl border border-[#2a2a2a] bg-[#151515] p-5">
-              <div className="text-xs text-slate-500 mb-2">Saldo atual</div>
-              <div className="text-[#a7f3d0] font-semibold">{selectedAccount.saldo}</div>
-            </div>
+        <div className="p-8">
+          
+          {/* Quick Info Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+             <div className="p-5 rounded-2xl bg-[#111111] border border-[#2a2a2a] hover:border-[#a100ff]/20 transition-all">
+                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-3">CONTA</div>
+                <div className="text-white font-bold text-sm font-mono">{selectedAccount.numeroConta}</div>
+             </div>
+             <div className="p-5 rounded-2xl bg-[#111111] border border-[#2a2a2a] hover:border-[#a100ff]/20 transition-all">
+                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-3">TIPO</div>
+                <div className="text-[#d8b4fe] font-black text-xs uppercase tracking-tighter">{selectedAccount.tipo} OPERACIONAL</div>
+             </div>
+             <div className="p-5 rounded-2xl bg-[#111111] border border-[#2a2a2a] hover:border-[#a100ff]/20 transition-all">
+                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-3">TITULAR</div>
+                <div className="text-white font-bold text-sm truncate">{selectedAccount.titular}</div>
+             </div>
+             <div className="p-5 rounded-2xl bg-[#111111] border border-[#a100ff]/20 hover:border-[#a100ff]/30 transition-all bg-gradient-to-br from-[#111111] to-[#a100ff]/[0.02]">
+                <div className="text-[10px] font-bold text-[#d8b4fe] uppercase tracking-widest mb-3">LIQUIDEZ</div>
+                <div className="text-white font-black text-base">{selectedAccount.saldo}</div>
+             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-            <div className="rounded-2xl border border-[#2a2a2a] overflow-hidden">
-              <div className="px-5 py-4 border-b border-[#2a2a2a] bg-[#151515] flex items-center justify-between">
-                <div>
-                  <h3 className="text-white font-semibold">Extrato / movimentações</h3>
-                  <p className="text-xs text-slate-400 mt-1">Entradas, saídas, pagamentos e estornos</p>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8">
+            
+            {/* Movements Table */}
+            <div className="rounded-2xl border border-[#2a2a2a] overflow-hidden bg-[#0b0b0b] shadow-xl">
+              <div className="px-6 py-5 border-b border-[#1a1a1a] bg-[#0f0f0f]/40 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                   <div className="w-2 h-2 rounded-full bg-[#a100ff] animate-pulse" />
+                   <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Registro Histórico</h3>
                 </div>
-                <div className="text-xs text-slate-400">{movements.length} movimentações</div>
+                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{movements.length} EVENTOS</div>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[900px]">
+                <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="text-slate-500 border-b border-[#2a2a2a] text-xs uppercase">
-                      <th className="font-medium p-4">Data/hora</th>
-                      <th className="font-medium p-4">Tipo de movimentação</th>
-                      <th className="font-medium p-4">Descrição</th>
-                      <th className="font-medium p-4">Valor</th>
-                      <th className="font-medium p-4">Pedido relacionado</th>
-                      <th className="font-medium p-4 text-right">Ações</th>
+                    <tr className="text-slate-600 border-b border-[#141414] text-[10px] font-bold uppercase tracking-[0.1em] bg-[#0b0b0b]">
+                      <th className="p-5">Temporal</th>
+                      <th className="p-5">Categoria</th>
+                      <th className="p-5">Descrição Analítica</th>
+                      <th className="p-5">Valor</th>
+                      <th className="p-5 text-right px-8">Ação</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#2a2a2a] bg-[#111111]">
+                  <tbody className="divide-y divide-[#141414]">
                     {movements.map(movimentacao => (
-                      <tr key={movimentacao.id} className="hover:bg-[#161616] transition-colors">
-                        <td className="p-4 text-slate-300">{movimentacao.dataHora}</td>
-                        <td className="p-4">{renderMovementChip(movimentacao.tipo)}</td>
-                        <td className="p-4 text-white">{movimentacao.descricao}</td>
-                        <td className="p-4 font-semibold text-[#d482ff]">{movimentacao.valor}</td>
-                        <td className="p-4 text-slate-300">{movimentacao.pedidoRelacionado}</td>
-                        <td className="p-4">
-                          <div className="flex justify-end gap-2">
-                            <Button className="bg-[#1e3a8a] hover:bg-[#2246a8] text-white rounded-full h-9 px-4 text-xs">
-                              <ShoppingBag className="w-4 h-4 mr-2" />
-                              Ver pedido relacionado
-                            </Button>
-                          </div>
+                      <tr key={movimentacao.id} className="group hover:bg-[#ffffff]/[0.015] transition-colors">
+                        <td className="p-5 text-[11px] font-mono text-slate-500 whitespace-nowrap">{movimentacao.dataHora}</td>
+                        <td className="p-5">{renderMovementChip(movimentacao.tipo)}</td>
+                        <td className="p-5 text-xs text-slate-300 font-medium leading-relaxed group-hover:text-white transition-colors">{movimentacao.descricao}</td>
+                        <td className="p-5 font-bold text-white tracking-tight">{movimentacao.valor}</td>
+                        <td className="p-5 text-right px-8">
+                          <Button className="bg-[#111111] border border-[#2a2a2a] text-slate-400 hover:text-[#a100ff] hover:border-[#a100ff]/30 rounded-lg h-8 px-3 text-[10px] font-bold transition-all transition-all">
+                             VER PEDIDO
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -528,36 +555,48 @@ export default function Contas() {
               </div>
             </div>
 
-            <aside className="space-y-4">
-              <div className="rounded-2xl border border-[#2a2a2a] bg-[#151515] p-5">
-                <h3 className="text-white font-semibold mb-4">Ações</h3>
+            {/* Sidebar Detalhe */}
+            <aside className="space-y-6">
+              <div className="rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] p-6 shadow-xl">
+                <h3 className="text-xs font-black text-white tracking-widest uppercase mb-6 flex items-center gap-2">
+                   CONTROLES DE CAIXA
+                   <HandCoins className="w-4 h-4 text-[#a100ff]/60" />
+                </h3>
                 <div className="flex flex-col gap-3">
-                  <Button className="bg-[#064e3b] hover:bg-[#0f766e] text-white rounded-full h-12 px-6 justify-start">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Depositar
+                  <Button className="w-full h-12 px-6 rounded-xl bg-[#111111] border border-[#a100ff]/30 text-[#d8b4fe] font-bold hover:bg-[#a100ff]/10 hover:border-[#a100ff]/50 transition-all justify-start">
+                    <Plus className="w-4 h-4 mr-3" />
+                    Depositar Fundos
                   </Button>
-                  <Button className="bg-[#7f1d1d] hover:bg-[#991b1b] text-white rounded-full h-12 px-6 justify-start">
-                    <Minus className="w-4 h-4 mr-2" />
-                    Sacar
+                  <Button className="w-full h-12 px-6 rounded-xl bg-[#111111] border border-[#5a1f35]/40 text-[#d6a2b0] font-bold hover:bg-[#2a1118] hover:border-[#5a1f35]/60 transition-all justify-start">
+                    <Minus className="w-4 h-4 mr-3" />
+                    Solicitar Saque
                   </Button>
-                  <Button className="bg-[#4a136f] hover:bg-[#5b148a] text-white rounded-full h-12 px-6 justify-start">
-                    <ReceiptText className="w-4 h-4 mr-2" />
-                    Ver pedido relacionado
+                  <Button className="w-full h-12 px-6 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 font-bold hover:bg-[#151515] hover:text-white transition-all justify-start">
+                    <ReceiptText className="w-4 h-4 mr-3" />
+                    Pedido Relacionado
                   </Button>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[#2a2a2a] bg-[#111111] p-5 text-sm text-slate-300">
-                <div className="flex items-center gap-2 mb-2"><Landmark className="w-4 h-4 text-[#d482ff]" /> Impacto financeiro</div>
-                <p>
-                  Nesta conta você pode mostrar o saldo do cliente, o saldo da empresa e o efeito de pagamento ou estorno.
+              <div className="rounded-2xl border border-[#a100ff]/10 bg-[#a100ff]/[0.02] p-6">
+                <div className="flex items-center gap-3 mb-4 text-[#d8b4fe]">
+                   <Landmark className="w-5 h-5 flex-shrink-0" />
+                   <h4 className="text-xs font-black uppercase tracking-widest">Impacto Financeiro</h4>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed italic">
+                  A conciliação bancária deve considerar o tempo de processamento do Accentur-Engine para garantir que o saldo visual reflita a realidade em conta.
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-[#2a2a2a] bg-[#111111] p-5 text-sm text-slate-300">
-                <div className="flex items-center gap-2 mb-2"><Banknote className="w-4 h-4 text-[#10b981]" /> Resumo da conta</div>
-                <p>Saldo atual: {selectedAccount.saldo}</p>
-                <p className="mt-1">Status: {selectedAccount.status}</p>
+              <div className="rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] p-6">
+                <div className="flex items-center gap-3 mb-4 text-[#c4b5fd]">
+                  <Banknote className="w-5 h-5 flex-shrink-0" />
+                  <h4 className="text-xs font-black uppercase tracking-widest">Resumo Operacional</h4>
+                </div>
+                <div className="space-y-3">
+                   <div className="flex justify-between text-xs font-medium"><span className="text-slate-600 uppercase tracking-tighter">Saldo Atual</span><span className="text-white font-black">{selectedAccount.saldo}</span></div>
+                   <div className="flex justify-between text-xs font-medium"><span className="text-slate-600 uppercase tracking-tighter">Estado</span><span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${selectedAccount.status === 'ATIVA' ? 'bg-[#c4b5fd]/10 text-[#c4b5fd] border-[#c4b5fd]/20' : 'bg-slate-900 text-slate-500 border-slate-800'}`}>{selectedAccount.status}</span></div>
+                </div>
               </div>
             </aside>
           </div>
@@ -566,5 +605,11 @@ export default function Contas() {
     </div>
   );
 
-  return <div>{view === 'overview' ? renderOverview() : renderDetail()}</div>;
+  return (
+    <div className="min-h-screen bg-black text-slate-100 font-sans antialiased">
+       <div className="py-8 px-4 sm:px-6">
+          {view === 'overview' ? renderOverview() : renderDetail()}
+       </div>
+    </div>
+  );
 }
