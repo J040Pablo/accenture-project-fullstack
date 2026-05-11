@@ -10,10 +10,10 @@ import lombok.*;
 @Builder
 public class EnderecoRequestDTO {
 
-    @NotBlank
+    @NotBlank(message = "O CEP é obrigatório.")
     private String cep;
 
-    @NotBlank
+    @NotBlank(message = "O número é obrigatório.")
     private String numero;
 
     private String complemento;

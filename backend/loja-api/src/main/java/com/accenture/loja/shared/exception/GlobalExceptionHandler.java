@@ -39,6 +39,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(erro);
     }
 
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ErroResponse> tratarBusinessException(BusinessException ex) {
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+
+        ErroResponse erro = new ErroResponse(
+                LocalDateTime.now(),
+                status.value(),
+                "Erro de regra de negócio",
+                ex.getMessage()
+        );
+
+        return ResponseEntity.status(status).body(erro);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErroResponse> tratarValidacao(MethodArgumentNotValidException ex) {
         HttpStatus status = HttpStatus.BAD_REQUEST;
@@ -56,5 +70,20 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(status).body(erro);
+    }
+    
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ErroResponse> handleBusinessException(
+            BusinessException ex
+    ) {
+
+        ErroResponse erro = new ErroResponse(
+                null, HttpStatus.NOT_FOUND.value(),
+                ex.getMessage(), null
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(erro);
     }
 }
