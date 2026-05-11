@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ChatbotTrigger } from './ChatbotTrigger';
 import { ChatbotPanel } from './ChatbotPanel';
 import type { ChatMessage as ChatMessageType, BotMood } from '../../types/Chatbot';
-import { getMockBotResponse } from './chatbotMocks';
+import { sendChatMessage } from '../../services/chatbot';
 
 export const Chatbot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,27 +18,44 @@ export const Chatbot: React.FC = () => {
     }
   };
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     const userMessage: ChatMessageType = {
       id: Date.now().toString(),
       type: 'user',
       content,
       createdAt: new Date().toISOString(),
     };
-    
+
     setMessages((prev) => [...prev, userMessage]);
     setCurrentMood('thinking');
-    
-    // Simulate API delay
-    setTimeout(() => {
-      const botResponse = getMockBotResponse(content);
-      setMessages((prev) => [...prev, botResponse]);
-      setCurrentMood(botResponse.mood || 'default');
-      
-      if (botResponse.mood === 'warning') {
-         if (!isOpen) setHasAlert(true);
-      }
-    }, 1500);
+
+    try {
+      const answer = await sendChatMessage(content);
+
+      const botMessage: ChatMessageType = {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: answer,
+        createdAt: new Date().toISOString(),
+        mood: 'default',
+      } as ChatMessageType;
+
+      setMessages((prev) => [...prev, botMessage]);
+      setCurrentMood('default');
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          type: 'bot',
+          content: 'Não consegui responder agora. Tente novamente.',
+          createdAt: new Date().toISOString(),
+          mood: 'default',
+        } as ChatMessageType,
+      ]);
+      setCurrentMood('default');
+      if (!isOpen) setHasAlert(true);
+    }
   };
 
   return (
