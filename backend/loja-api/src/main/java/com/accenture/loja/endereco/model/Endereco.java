@@ -15,10 +15,12 @@ public class Endereco {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String cep;
 
     private String rua;
 
+    @Column(nullable = false)
     private String numero;
 
     private String complemento;
