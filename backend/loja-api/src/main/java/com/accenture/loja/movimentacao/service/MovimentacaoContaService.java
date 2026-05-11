@@ -1,53 +1,53 @@
 package com.accenture.loja.movimentacao.service;
 
-import com.accenture.loja.movimentacao.dto.MovimentacaoContaRequestDTO;
-import com.accenture.loja.movimentacao.dto.MovimentacaoContaResponseDTO;
+import com.accenture.loja.conta.model.ContaCorrente;
+import com.accenture.loja.movimentacao.dto.MovimentacaoContaResponse;
 import com.accenture.loja.movimentacao.mapper.MovimentacaoContaMapper;
 import com.accenture.loja.movimentacao.model.MovimentacaoConta;
 import com.accenture.loja.movimentacao.repository.MovimentacaoContaRepository;
-import com.accenture.loja.conta.model.ContaCorrente;
-import com.accenture.loja.conta.repository.ContaCorrenteRepository;
 import com.accenture.loja.pedido.model.Pedido;
-import com.accenture.loja.pedido.repository.PedidoRepository;
-import com.accenture.loja.shared.exception.ResourceNotFoundException;
+import com.accenture.loja.shared.enums.TipoMovimentacao;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class MovimentacaoContaService {
 
-    private final MovimentacaoContaRepository movimentacaoContaRepository;
-    private final ContaCorrenteRepository contaCorrenteRepository;
-    private final PedidoRepository pedidoRepository;
-    private final MovimentacaoContaMapper movimentacaoContaMapper;
+    private final MovimentacaoContaRepository repository;
+    private final MovimentacaoContaMapper mapper;
 
-    @Transactional(readOnly = true)
-    public List<MovimentacaoContaResponseDTO> listarPorConta(Long contaCorrenteId) {
-        return movimentacaoContaRepository.findByContaCorrenteId(contaCorrenteId)
+    public List<MovimentacaoContaResponse> listarTodas() {
+        return repository.findAll()
                 .stream()
-                .map(movimentacaoContaMapper::toResponseDTO)
-                .collect(Collectors.toList());
+                .map(mapper::toResponse)
+                .toList();
     }
 
-    @Transactional
-    public MovimentacaoContaResponseDTO criarMovimentacao(MovimentacaoContaRequestDTO requestDTO) {
-        ContaCorrente conta = contaCorrenteRepository.findById(requestDTO.getContaCorrenteId())
-                .orElseThrow(() -> new ResourceNotFoundException("Conta Corrente não encontrada"));
+    public List<MovimentacaoContaResponse> listarPorConta(Long contaId) {
+        return repository.findByContaIdOrderByDataHoraDesc(contaId)
+                .stream()
+                .map(mapper::toResponse)
+                .toList();
+    }
 
-        Pedido pedido = null;
-        if (requestDTO.getPedidoId() != null) {
-            pedido = pedidoRepository.findById(requestDTO.getPedidoId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado"));
-        }
 
-        MovimentacaoConta movimentacao = movimentacaoContaMapper.toEntity(requestDTO, conta, pedido);
-        movimentacao = movimentacaoContaRepository.save(movimentacao);
+    public MovimentacaoConta registar(ContaCorrente conta,
+                                      TipoMovimentacao tipo,
+                                      BigDecimal valor,
+                                      Pedido pedido) {
+        MovimentacaoConta mov = MovimentacaoConta.builder()
+                .conta(conta)
+                .tipo(tipo)
+                .valor(valor)
+                .pedido(pedido)
+                .dataHora(LocalDateTime.now())
+                .build();
 
-        return movimentacaoContaMapper.toResponseDTO(movimentacao);
+        return repository.save(mov);
     }
 }

@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "movimentacoes_conta")
+@Table(name = "tb_movimentacao_conta")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,21 +22,21 @@ public class MovimentacaoConta {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "conta_corrente_id", nullable = false)
-    private ContaCorrente contaCorrente;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "conta_id", nullable = false)
+    private ContaCorrente conta;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private TipoMovimentacao tipoMovimentacao;
+    private TipoMovimentacao tipo;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal valor;
 
     @Column(nullable = false)
-    private LocalDateTime dataHora = LocalDateTime.now();
+    private LocalDateTime dataHora;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pedido_id")
     private Pedido pedido;
 }
