@@ -2,7 +2,6 @@ package com.accenture.loja.produto.controller;
 
 import com.accenture.loja.produto.dto.ProdutoRequestDTO;
 import com.accenture.loja.produto.dto.EstoqueRequestDTO;
-import com.accenture.loja.produto.dto.ProdutoRequestDTO;
 import com.accenture.loja.produto.dto.ProdutoResponseDTO;
 import com.accenture.loja.produto.service.ProdutoService;
 import jakarta.validation.Valid;
