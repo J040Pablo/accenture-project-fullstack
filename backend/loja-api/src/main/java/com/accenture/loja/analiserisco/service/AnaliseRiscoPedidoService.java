@@ -37,8 +37,8 @@ public class AnaliseRiscoPedidoService {
     }
 
     public AnaliseRiscoPedidoResponseDTO buscarPorPedido(Long pedidoId) {
-        AnaliseRiscoPedido analise = analiseRiscoPedidoRepository.findByPedidoId(pedidoId)
-                .orElseThrow(() -> new ResourceNotFoundException("Análise não encontrada para este pedido"));
+        AnaliseRiscoPedido analise = analiseRiscoPedidoRepository.findByPedidoIdPedido(pedidoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Análise não encontrada"));
 
         return analiseRiscoPedidoMapper.toResponseDTO(analise);
     }

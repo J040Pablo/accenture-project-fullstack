@@ -8,5 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface AnaliseRiscoPedidoRepository extends JpaRepository<AnaliseRiscoPedido, Long> {
-    Optional<AnaliseRiscoPedido> findByPedidoId(Long pedidoId);
+    Optional<AnaliseRiscoPedido> findByPedidoIdPedido(Long idPedido);
 }
