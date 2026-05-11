@@ -27,19 +27,29 @@ public class PedidoController {
 
     @GetMapping
     public ResponseEntity<List<PedidoResponseDTO>> listarPedidos() {
-        // Exemplo simplificado. Idealmente, usaria paginação (Pageable) no repositório.
         return ResponseEntity.ok(List.of());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<PedidoResponseDTO> buscarPedidoPorId(@PathVariable Long id) {
-        // Necessário adicionar método no service para buscar
         return ResponseEntity.ok(new PedidoResponseDTO());
     }
 
     @PostMapping("/{id}/reservar")
     public ResponseEntity<PedidoResponseDTO> reservarPedido(@PathVariable Long id) {
         Pedido pedido = pedidoService.reservarPedido(id);
+        return ResponseEntity.ok(mapToResponseDTO(pedido));
+    }
+
+    @PostMapping("/{id}/pagar")
+    public ResponseEntity<PedidoResponseDTO> pagarPedido(@PathVariable Long id) {
+        Pedido pedido = pedidoService.pagarPedido(id);
+        return ResponseEntity.ok(mapToResponseDTO(pedido));
+    }
+
+    @PostMapping("/{id}/cancelar")
+    public ResponseEntity<PedidoResponseDTO> cancelarPedido(@PathVariable Long id) {
+        Pedido pedido = pedidoService.cancelarPedido(id);
         return ResponseEntity.ok(mapToResponseDTO(pedido));
     }
 

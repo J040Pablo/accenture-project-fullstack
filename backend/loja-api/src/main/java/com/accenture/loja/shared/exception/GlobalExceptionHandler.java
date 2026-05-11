@@ -71,19 +71,4 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(status).body(erro);
     }
-    
-    @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErroResponse> handleBusinessException(
-            BusinessException ex
-    ) {
-
-        ErroResponse erro = new ErroResponse(
-                null, HttpStatus.NOT_FOUND.value(),
-                ex.getMessage(), null
-        );
-
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(erro);
-    }
 }

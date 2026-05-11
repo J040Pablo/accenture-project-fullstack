@@ -14,7 +14,7 @@ public class AnaliseRiscoPedidoMapper {
 
         return AnaliseRiscoPedidoResponseDTO.builder()
                 .id(analise.getId())
-                .pedidoId(analise.getPedido() != null ? analise.getPedido().getId() : null)
+                .pedidoId(analise.getPedido() != null ? analise.getPedido().getIdPedido() : null)
                 .nivelRisco(analise.getNivelRisco())
                 .motivo(analise.getMotivo())
                 .dataAnalise(analise.getDataAnalise())
