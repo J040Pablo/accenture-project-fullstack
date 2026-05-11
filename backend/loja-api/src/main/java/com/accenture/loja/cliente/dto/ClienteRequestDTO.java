@@ -12,13 +12,13 @@ import lombok.*;
 @Builder
 public class ClienteRequestDTO {
 
-    @NotBlank
+    @NotBlank(message = "O Nome é obrigatório.")
     private String nome;
 
-    @NotBlank
+    @NotBlank(message = "O CPF é obrigatório.")
     private String cpf;
 
-    @Email
+    @Email(message = "O Email é obrigatório.")
     private String email;
 
     @Valid
