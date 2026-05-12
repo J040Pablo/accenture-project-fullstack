@@ -143,4 +143,16 @@ class ContaCorrenteServiceTest {
         assertEquals(TipoTitularConta.CLIENTE, resultado.getTipoTitular());
         verify(repository, times(1)).save(contaCliente);
     }
+
+    @Test
+    void testListarContas_Sucesso() {
+        when(repository.findAll()).thenReturn(java.util.List.of(contaCliente, contaEmpresa));
+
+        var resultado = service.listarContas();
+
+        assertNotNull(resultado);
+        assertEquals(2, resultado.size());
+        assertEquals(contaCliente.getId(), resultado.get(0).getId());
+        assertEquals(contaEmpresa.getId(), resultado.get(1).getId());
+    }
 }

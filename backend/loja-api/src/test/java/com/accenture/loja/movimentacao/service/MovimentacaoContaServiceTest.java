@@ -261,6 +261,17 @@ class MovimentacaoContaServiceTest {
         verify(repository, times(1)).findAll();
     }
 
+        @Test
+        void testListarTodas_Vazio() {
+                when(repository.findAll()).thenReturn(List.of());
+
+                List<MovimentacaoContaResponse> resultado = service.listarTodas();
+
+                assertNotNull(resultado);
+                assertTrue(resultado.isEmpty());
+                verify(repository, times(1)).findAll();
+        }
+
     @Test
     void testListarPorConta() {
         MovimentacaoConta mov1 = MovimentacaoConta.builder()
@@ -284,4 +295,87 @@ class MovimentacaoContaServiceTest {
         assertEquals(1, resultado.size());
         verify(repository, times(1)).findByContaIdOrderByDataHoraDesc(1L);
     }
+
+        @Test
+        void testListarPorConta_Vazio() {
+                when(repository.findByContaIdOrderByDataHoraDesc(999L)).thenReturn(List.of());
+
+                List<MovimentacaoContaResponse> resultado = service.listarPorConta(999L);
+
+                assertNotNull(resultado);
+                assertTrue(resultado.isEmpty());
+                verify(repository, times(1)).findByContaIdOrderByDataHoraDesc(999L);
+        }
+
+        @Test
+        void testRegistrar_Deposito_SemPedido() {
+                MovimentacaoConta movimento = MovimentacaoConta.builder()
+                                .id(10L)
+                                .conta(contaCliente)
+                                .tipo(TipoMovimentacao.DEPOSITO)
+                                .valor(new BigDecimal("50.00"))
+                                .descricao("Depósito em conta")
+                                .build();
+
+                when(repository.save(any(MovimentacaoConta.class))).thenReturn(movimento);
+
+                MovimentacaoConta resultado = service.registrar(
+                                contaCliente,
+                                TipoMovimentacao.DEPOSITO,
+                                new BigDecimal("50.00"),
+                                null
+                );
+
+                assertNotNull(resultado);
+                assertEquals(TipoMovimentacao.DEPOSITO, resultado.getTipo());
+                verify(repository, times(1)).save(any(MovimentacaoConta.class));
+        }
+
+        @Test
+        void testRegistrar_Saque_SemPedido() {
+                MovimentacaoConta movimento = MovimentacaoConta.builder()
+                                .id(11L)
+                                .conta(contaCliente)
+                                .tipo(TipoMovimentacao.SAQUE)
+                                .valor(new BigDecimal("50.00"))
+                                .descricao("Saque em conta")
+                                .build();
+
+                when(repository.save(any(MovimentacaoConta.class))).thenReturn(movimento);
+
+                MovimentacaoConta resultado = service.registrar(
+                                contaCliente,
+                                TipoMovimentacao.SAQUE,
+                                new BigDecimal("50.00"),
+                                null
+                );
+
+                assertNotNull(resultado);
+                assertEquals(TipoMovimentacao.SAQUE, resultado.getTipo());
+                verify(repository, times(1)).save(any(MovimentacaoConta.class));
+        }
+
+        @Test
+        void testRegistrar_ComPedidoNulo_ParaPagamentoGeraDescricaoComNull() {
+                MovimentacaoConta movimento = MovimentacaoConta.builder()
+                                .id(12L)
+                                .conta(contaCliente)
+                                .tipo(TipoMovimentacao.PAGAMENTO_PEDIDO)
+                                .valor(new BigDecimal("50.00"))
+                                .descricao("Pagamento do pedido #null")
+                                .build();
+
+                when(repository.save(any(MovimentacaoConta.class))).thenReturn(movimento);
+
+                MovimentacaoConta resultado = service.registrar(
+                                contaCliente,
+                                TipoMovimentacao.PAGAMENTO_PEDIDO,
+                                new BigDecimal("50.00"),
+                                null
+                );
+
+                assertNotNull(resultado);
+                assertEquals("Pagamento do pedido #null", resultado.getDescricao());
+                verify(repository, times(1)).save(any(MovimentacaoConta.class));
+        }
 }
