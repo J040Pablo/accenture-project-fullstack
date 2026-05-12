@@ -9,6 +9,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -287,13 +289,10 @@ class MovimentacaoContaTest {
                 .tipo(TipoMovimentacao.DEPOSITO)
                 .valor(new BigDecimal("50.00"))
                 .dataHora(null)
-                .descricao("dep")
+                .descricao("Depósito em conta")
                 .build();
 
-        // invoke private prePersist
-        java.lang.reflect.Method m = MovimentacaoConta.class.getDeclaredMethod("prePersist");
-        m.setAccessible(true);
-        m.invoke(mov);
+        invokePrePersist(mov);
 
         assertNotNull(mov.getDataHora());
     }
@@ -306,13 +305,95 @@ class MovimentacaoContaTest {
                 .tipo(TipoMovimentacao.DEPOSITO)
                 .valor(new BigDecimal("50.00"))
                 .dataHora(dt)
-                .descricao("dep")
+                .descricao("Depósito em conta")
                 .build();
 
-        java.lang.reflect.Method m = MovimentacaoConta.class.getDeclaredMethod("prePersist");
-        m.setAccessible(true);
-        m.invoke(mov);
+            invokePrePersist(mov);
 
         assertEquals(dt, mov.getDataHora());
     }
+
+            @Test
+            void testPrePersistLancaExcecaoQuandoDescricaoForNula() throws Exception {
+            MovimentacaoConta mov = MovimentacaoConta.builder()
+                .conta(contaCliente)
+                .tipo(TipoMovimentacao.DEPOSITO)
+                .valor(new BigDecimal("50.00"))
+                .dataHora(null)
+                .descricao(null)
+                .build();
+
+            InvocationTargetException exception = assertThrows(
+                InvocationTargetException.class,
+                () -> invokePrePersist(mov)
+            );
+
+            assertInstanceOf(IllegalStateException.class, exception.getCause());
+            assertEquals("A descrição da movimentação é obrigatória.", exception.getCause().getMessage());
+            assertNotNull(mov.getDataHora());
+            }
+
+            @Test
+            void testPrePersistLancaExcecaoQuandoDescricaoForEmBranco() throws Exception {
+            MovimentacaoConta mov = MovimentacaoConta.builder()
+                .conta(contaCliente)
+                .tipo(TipoMovimentacao.DEPOSITO)
+                .valor(new BigDecimal("50.00"))
+                .dataHora(null)
+                .descricao("   ")
+                .build();
+
+            InvocationTargetException exception = assertThrows(
+                InvocationTargetException.class,
+                () -> invokePrePersist(mov)
+            );
+
+            assertInstanceOf(IllegalStateException.class, exception.getCause());
+            assertEquals("A descrição da movimentação é obrigatória.", exception.getCause().getMessage());
+            assertNotNull(mov.getDataHora());
+            }
+
+        @Test
+        void testPrePersistLancaExcecaoQuandoDescricaoForVazia() throws Exception {
+            MovimentacaoConta mov = MovimentacaoConta.builder()
+                    .conta(contaCliente)
+                    .tipo(TipoMovimentacao.DEPOSITO)
+                    .valor(new BigDecimal("50.00"))
+                    .dataHora(null)
+                    .descricao("")
+                    .build();
+
+            InvocationTargetException exception = assertThrows(
+                    InvocationTargetException.class,
+                    () -> invokePrePersist(mov)
+            );
+
+            assertInstanceOf(IllegalStateException.class, exception.getCause());
+            assertEquals("A descrição da movimentação é obrigatória.", exception.getCause().getMessage());
+            assertNotNull(mov.getDataHora());
+        }
+
+            @Test
+            void testPrePersistComDescricaoValidaNaoLancaExcecao() throws Exception {
+            MovimentacaoConta mov = MovimentacaoConta.builder()
+                .conta(contaCliente)
+                .tipo(TipoMovimentacao.DEPOSITO)
+                .valor(new BigDecimal("50.00"))
+                .dataHora(null)
+                .descricao("Depósito realizado")
+                .build();
+
+            assertDoesNotThrow(() -> invokePrePersist(mov));
+
+            assertNotNull(mov.getDataHora());
+            assertEquals("Depósito realizado", mov.getDescricao());
+            }
+
+            private static void invokePrePersist(MovimentacaoConta movimentacaoConta)
+                throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+
+            Method method = MovimentacaoConta.class.getDeclaredMethod("prePersist");
+            method.setAccessible(true);
+            method.invoke(movimentacaoConta);
+            }
 }

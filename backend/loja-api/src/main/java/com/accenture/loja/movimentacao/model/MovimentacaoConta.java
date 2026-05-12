@@ -48,6 +48,16 @@ public class MovimentacaoConta {
         if (dataHora == null) {
             dataHora = LocalDateTime.now();
         }
+
+        validarDescricao();
+    }
+
+    @PreUpdate
+    private void preUpdate() {
+        validarDescricao();
+    }
+
+    private void validarDescricao() {
         if (descricao == null || descricao.trim().isEmpty()) {
             throw new IllegalStateException("A descrição da movimentação é obrigatória.");
         }

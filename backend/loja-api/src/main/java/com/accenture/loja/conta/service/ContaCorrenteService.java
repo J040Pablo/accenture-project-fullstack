@@ -8,6 +8,7 @@ import com.accenture.loja.shared.exception.BusinessException;
 import com.accenture.loja.shared.exception.RegraNegocioException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -33,10 +34,8 @@ public class ContaCorrenteService {
     }
 
     public ContaCorrente buscarContaEmpresa() {
-        List<ContaCorrente> contasEmpresa = contaCorrenteRepository.findAll()
-                .stream()
-                .filter(conta -> TipoTitularConta.EMPRESA.equals(conta.getTipoTitular()))
-                .toList();
+        List<ContaCorrente> contasEmpresa =
+                contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA);
 
         if (contasEmpresa.isEmpty()) {
             throw new RegraNegocioException("Conta da empresa não encontrada.");
@@ -50,10 +49,12 @@ public class ContaCorrenteService {
     }
 
     public boolean existeContaEmpresa() {
-        return contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA)
-                .isPresent();
+        return !contaCorrenteRepository
+                .findByTipoTitular(TipoTitularConta.EMPRESA)
+                .isEmpty();
     }
 
+    @Transactional
     public void transferir(ContaCorrente origem, ContaCorrente destino, BigDecimal valor) {
         if (origem == null) {
             throw new RegraNegocioException("Conta de origem não encontrada.");

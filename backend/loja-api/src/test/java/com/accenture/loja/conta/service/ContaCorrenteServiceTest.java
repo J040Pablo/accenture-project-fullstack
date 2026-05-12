@@ -136,7 +136,7 @@ class ContaCorrenteServiceTest {
     @Test
     void deveBuscarContaEmpresa() {
         when(contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA))
-                .thenReturn(Optional.of(contaEmpresa));
+                .thenReturn(List.of(contaEmpresa));
 
         ContaCorrente resultado = contaCorrenteService.buscarContaEmpresa();
 
@@ -152,7 +152,7 @@ class ContaCorrenteServiceTest {
     @Test
     void deveLancarExcecaoQuandoContaEmpresaNaoEncontrada() {
         when(contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA))
-                .thenReturn(Optional.empty());
+                .thenReturn(List.of());
 
         RegraNegocioException exception = assertThrows(
                 RegraNegocioException.class,
@@ -160,6 +160,55 @@ class ContaCorrenteServiceTest {
         );
 
         assertEquals("Conta da empresa não encontrada.", exception.getMessage());
+
+        verify(contaCorrenteRepository, times(1))
+                .findByTipoTitular(TipoTitularConta.EMPRESA);
+    }
+
+    @Test
+    void deveLancarExcecaoQuandoExistirMaisDeUmaContaEmpresa() {
+        ContaCorrente outraContaEmpresa = ContaCorrente.builder()
+                .id(3L)
+                .numeroConta("99999")
+                .saldo(BigDecimal.ZERO)
+                .tipoTitular(TipoTitularConta.EMPRESA)
+                .build();
+
+        when(contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA))
+                .thenReturn(List.of(contaEmpresa, outraContaEmpresa));
+
+        RegraNegocioException exception = assertThrows(
+                RegraNegocioException.class,
+                () -> contaCorrenteService.buscarContaEmpresa()
+        );
+
+        assertEquals("Há mais de uma conta da empresa cadastrada.", exception.getMessage());
+
+        verify(contaCorrenteRepository, times(1))
+                .findByTipoTitular(TipoTitularConta.EMPRESA);
+    }
+
+    @Test
+    void deveRetornarTrueQuandoExisteContaEmpresa() {
+        when(contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA))
+                .thenReturn(List.of(contaEmpresa));
+
+        boolean existe = contaCorrenteService.existeContaEmpresa();
+
+        assertTrue(existe);
+
+        verify(contaCorrenteRepository, times(1))
+                .findByTipoTitular(TipoTitularConta.EMPRESA);
+    }
+
+    @Test
+    void deveRetornarFalseQuandoNaoExisteContaEmpresa() {
+        when(contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA))
+                .thenReturn(List.of());
+
+        boolean existe = contaCorrenteService.existeContaEmpresa();
+
+        assertFalse(existe);
 
         verify(contaCorrenteRepository, times(1))
                 .findByTipoTitular(TipoTitularConta.EMPRESA);
@@ -197,36 +246,36 @@ class ContaCorrenteServiceTest {
     }
 
     @Test
-        void deveLancarExcecaoAoTransferirComContaOrigemNula() {
-                RegraNegocioException exception = assertThrows(
-            RegraNegocioException.class,
-                        () -> contaCorrenteService.transferir(
-                         null,
-                                contaEmpresa,
-                                new BigDecimal("100.00")
+    void deveLancarExcecaoAoTransferirComContaOrigemNula() {
+        RegraNegocioException exception = assertThrows(
+                RegraNegocioException.class,
+                () -> contaCorrenteService.transferir(
+                        null,
+                        contaEmpresa,
+                        new BigDecimal("100.00")
                 )
         );
 
-                assertEquals("Conta de origem não encontrada.", exception.getMessage());
+        assertEquals("Conta de origem não encontrada.", exception.getMessage());
 
-                verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
-        }
+        verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
+    }
 
-   @Test
-        void deveLancarExcecaoAoTransferirComContaDestinoNula() {
-                RegraNegocioException exception = assertThrows(
-            RegraNegocioException.class,
-                         () -> contaCorrenteService.transferir(
-                                 contaCliente,
+    @Test
+    void deveLancarExcecaoAoTransferirComContaDestinoNula() {
+        RegraNegocioException exception = assertThrows(
+                RegraNegocioException.class,
+                () -> contaCorrenteService.transferir(
+                        contaCliente,
                         null,
-                                 new BigDecimal("100.00")
-            )
+                        new BigDecimal("100.00")
+                )
         );
 
-                assertEquals("Conta de destino não encontrada.", exception.getMessage());
+        assertEquals("Conta de destino não encontrada.", exception.getMessage());
 
-                verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
-        }
+        verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
+    }
 
     @Test
     void deveLancarExcecaoAoTransferirComValorZero() {
