@@ -1,6 +1,7 @@
 package com.accenture.loja.empresa.model;
 
 import jakarta.persistence.*;
+import com.accenture.loja.conta.model.ContaCorrente;
 
 @Entity
 @Table(name = "empresas")
@@ -26,6 +27,10 @@ public class Empresa {
 
     @Column(nullable = false)
     private Boolean ativo = true;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "conta_corrente_id")
+    private ContaCorrente contaCorrente;
 
     public Empresa() {
     }
@@ -93,5 +98,13 @@ public class Empresa {
 
     public void setAtivo(Boolean ativo) {
         this.ativo = ativo;
+    }
+
+    public ContaCorrente getContaCorrente() {
+        return contaCorrente;
+    }
+
+    public void setContaCorrente(ContaCorrente contaCorrente) {
+        this.contaCorrente = contaCorrente;
     }
 }

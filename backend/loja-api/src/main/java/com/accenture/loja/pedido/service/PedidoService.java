@@ -3,12 +3,12 @@ package com.accenture.loja.pedido.service;
 import com.accenture.loja.cliente.model.Cliente;
 import com.accenture.loja.cliente.repository.ClienteRepository;
 import com.accenture.loja.conta.model.ContaCorrente;
-import com.accenture.loja.conta.repository.ContaCorrenteRepository;
+import com.accenture.loja.conta.service.ContaCorrenteService;
 import com.accenture.loja.movimentacao.service.MovimentacaoContaService;
-import com.accenture.loja.pedido.model.ItemPedido;
-import com.accenture.loja.pedido.model.Pedido;
 import com.accenture.loja.pedido.dto.CriarPedidoRequestDTO;
 import com.accenture.loja.pedido.dto.ItemPedidoRequestDTO;
+import com.accenture.loja.pedido.model.ItemPedido;
+import com.accenture.loja.pedido.model.Pedido;
 import com.accenture.loja.pedido.repository.PedidoRepository;
 import com.accenture.loja.produto.model.Produto;
 import com.accenture.loja.produto.repository.ProdutoRepository;
@@ -23,17 +23,15 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-
 @Service
 @RequiredArgsConstructor
 @Transactional
-
 public class PedidoService {
 
     private final PedidoRepository pedidoRepository;
     private final ClienteRepository clienteRepository;
     private final ProdutoRepository produtoRepository;
-    private final ContaCorrenteRepository contaCorrenteRepository;
+    private final ContaCorrenteService contaCorrenteService;
     private final MovimentacaoContaService movimentacaoContaService;
 
     @Transactional
@@ -73,7 +71,7 @@ public class PedidoService {
             Produto produto = produtoRepository.findById(itemDto.getProdutoId())
                     .orElseThrow(() -> new RegraNegocioException("Produto não encontrado."));
 
-            if (!produto.getAtivo()) {
+            if (!Boolean.TRUE.equals(produto.getAtivo())) {
                 throw new RegraNegocioException(
                         "Não é possível criar pedido com produto inativo: " + produto.getNome());
             }
@@ -86,7 +84,7 @@ public class PedidoService {
             }
 
             BigDecimal precoUnitario = produto.getPreco();
-            BigDecimal subtotal = precoUnitario.multiply(new BigDecimal(itemDto.getQuantidade()));
+            BigDecimal subtotal = precoUnitario.multiply(BigDecimal.valueOf(itemDto.getQuantidade()));
 
             ItemPedido item = ItemPedido.builder()
                     .produto(produto)
@@ -100,11 +98,13 @@ public class PedidoService {
         }
 
         pedido.setTotalBruto(totalBruto);
+
         BigDecimal totalFinal = totalBruto.subtract(pedido.getDesconto());
 
         if (totalFinal.compareTo(BigDecimal.ZERO) < 0) {
             totalFinal = BigDecimal.ZERO;
         }
+
         pedido.setTotalFinal(totalFinal);
 
         return pedidoRepository.save(pedido);
@@ -119,28 +119,32 @@ public class PedidoService {
             throw new RegraNegocioException("Apenas pedidos no status CRIADO podem ser reservados.");
         }
 
-        if (pedido.getItens().isEmpty()) {
+        if (pedido.getItens() == null || pedido.getItens().isEmpty()) {
             throw new RegraNegocioException("Não é possível reservar um pedido sem itens.");
         }
 
-        // Validação e baixa de estoque
         for (ItemPedido item : pedido.getItens()) {
             Produto produto = item.getProduto();
 
-            if (!produto.getAtivo()) {
-                throw new RegraNegocioException(
-                        "Não é possível reservar produto inativo: " + produto.getNome());
+            if (produto == null) {
+                throw new RegraNegocioException("Produto do item não encontrado.");
+            }
+
+            if (!Boolean.TRUE.equals(produto.getAtivo())) {
+                throw new RegraNegocioException("Produto inativo não pode ser reservado: " + produto.getNome());
             }
 
             if (produto.getEstoque() < item.getQuantidade()) {
                 throw new RegraNegocioException("Estoque insuficiente para o produto: " + produto.getNome());
             }
+
             produto.setEstoque(produto.getEstoque() - item.getQuantidade());
             produtoRepository.save(produto);
         }
 
         pedido.setStatus(StatusPedido.RESERVADO);
         pedido.setDataReserva(LocalDateTime.now());
+
         return pedidoRepository.save(pedido);
     }
 
@@ -149,35 +153,50 @@ public class PedidoService {
         Pedido pedido = pedidoRepository.findById(idPedido)
                 .orElseThrow(() -> new RegraNegocioException("Pedido não encontrado."));
 
-        // pedido precisa estar RESERVADO
         if (!StatusPedido.RESERVADO.equals(pedido.getStatus())) {
             throw new RegraNegocioException("Apenas pedidos RESERVADOS podem ser pagos.");
         }
 
-        ContaCorrente contaCliente = contaCorrenteRepository.findById(pedido.getCliente().getContaCorrente().getId())
-                .orElseThrow(() -> new RegraNegocioException("Conta do cliente não encontrada."));
+        ContaCorrente contaCliente = pedido.getCliente().getContaCorrente();
 
-        ContaCorrente contaEmpresa = contaCorrenteRepository.findById(1L)
-                .orElseThrow(() -> new RegraNegocioException("Conta da empresa não configurada."));
+        if (contaCliente == null) {
+            throw new RegraNegocioException("Cliente não possui conta corrente.");
+        }
 
-        // debitar conta do cliente
-        if (contaCliente.getSaldo().compareTo(pedido.getTotalFinal()) < 0) {
+        ContaCorrente contaEmpresa = contaCorrenteService.buscarContaEmpresa();
+
+        BigDecimal valorPedido = pedido.getTotalFinal();
+
+        if (valorPedido == null || valorPedido.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RegraNegocioException("Valor do pedido deve ser maior que zero.");
+        }
+
+        if (contaCliente.getSaldo().compareTo(valorPedido) < 0) {
             throw new RegraNegocioException("Saldo insuficiente.");
         }
-        contaCliente.setSaldo(contaCliente.getSaldo().subtract(pedido.getTotalFinal()));
-        contaEmpresa.setSaldo(contaEmpresa.getSaldo().add(pedido.getTotalFinal()));
 
-        movimentacaoContaService.registar(contaCliente, TipoMovimentacao.PAGAMENTO_PEDIDO, pedido.getTotalFinal(), pedido);
-        movimentacaoContaService.registar(contaEmpresa, TipoMovimentacao.RECEBIMENTO_EMPRESA, pedido.getTotalFinal(), pedido);
+        contaCorrenteService.transferir(contaCliente, contaEmpresa, valorPedido);
 
-        // requisito: status muda para PAGO
+        movimentacaoContaService.registrar(
+                contaCliente,
+                TipoMovimentacao.PAGAMENTO_PEDIDO,
+                valorPedido,
+                pedido
+        );
+
+        movimentacaoContaService.registrar(
+                contaEmpresa,
+                TipoMovimentacao.RECEBIMENTO_EMPRESA,
+                valorPedido,
+                pedido
+        );
+
         pedido.setStatus(StatusPedido.PAGO);
         pedido.setDataPagamento(LocalDateTime.now());
 
-        contaCorrenteRepository.save(contaCliente);
-        contaCorrenteRepository.save(contaEmpresa);
         return pedidoRepository.save(pedido);
     }
+
     @Transactional
     public Pedido cancelarPedido(Long idPedido, String motivoCancelamento) {
         if (motivoCancelamento == null || motivoCancelamento.trim().isEmpty()) {
@@ -189,28 +208,24 @@ public class PedidoService {
 
         switch (pedido.getStatus()) {
             case PAGO:
-                // pedido pago: devolve estoque e estorna dinheiro
                 estornarDinheiro(pedido);
                 devolverEstoque(pedido);
                 break;
 
             case RESERVADO:
-                // pediddo reservado: devolve estoque
                 devolverEstoque(pedido);
                 break;
 
             case CRIADO:
-                // pedido criado: apenas cancela
                 break;
 
             default:
                 throw new RegraNegocioException("Pedido não pode ser cancelado no status atual.");
         }
 
-        // requisito: status muda para cancelado
         pedido.setStatus(StatusPedido.CANCELADO);
         pedido.setDataCancelamento(LocalDateTime.now());
-        pedido.setMotivoCancelamento(motivoCancelamento);
+        pedido.setMotivoCancelamento(motivoCancelamento.trim());
 
         return pedidoRepository.save(pedido);
     }
@@ -218,6 +233,11 @@ public class PedidoService {
     private void devolverEstoque(Pedido pedido) {
         for (ItemPedido item : pedido.getItens()) {
             Produto produto = item.getProduto();
+
+            if (produto == null) {
+                throw new RegraNegocioException("Produto do item não encontrado.");
+            }
+
             produto.setEstoque(produto.getEstoque() + item.getQuantidade());
             produtoRepository.save(produto);
         }
@@ -225,16 +245,41 @@ public class PedidoService {
 
     private void estornarDinheiro(Pedido pedido) {
         ContaCorrente contaCliente = pedido.getCliente().getContaCorrente();
-        ContaCorrente contaEmpresa = contaCorrenteRepository.findById(1L).get();
 
-        contaCliente.setSaldo(contaCliente.getSaldo().add(pedido.getTotalFinal()));
-        contaEmpresa.setSaldo(contaEmpresa.getSaldo().subtract(pedido.getTotalFinal()));
+        if (contaCliente == null) {
+            throw new RegraNegocioException("Cliente não possui conta corrente.");
+        }
 
-        movimentacaoContaService.registar(contaCliente, TipoMovimentacao.ESTORNO_CLIENTE, pedido.getTotalFinal(), pedido);
-        movimentacaoContaService.registar(contaEmpresa, TipoMovimentacao.ESTORNO_EMPRESA, pedido.getTotalFinal(), pedido);
+        ContaCorrente contaEmpresa = contaCorrenteService.buscarContaEmpresa();
 
-        contaCorrenteRepository.save(contaCliente);
-        contaCorrenteRepository.save(contaEmpresa);
+        BigDecimal valorPedido = pedido.getTotalFinal();
+
+        if (valorPedido == null || valorPedido.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RegraNegocioException("Valor do pedido deve ser maior que zero.");
+        }
+
+        if (valorPedido.compareTo(BigDecimal.ZERO) == 0) {
+            return;
+        }
+
+        if (contaEmpresa.getSaldo().compareTo(valorPedido) < 0) {
+            throw new RegraNegocioException("Saldo insuficiente na conta da empresa para realizar estorno.");
+        }
+
+        contaCorrenteService.transferir(contaEmpresa, contaCliente, valorPedido);
+
+        movimentacaoContaService.registrar(
+                contaCliente,
+                TipoMovimentacao.ESTORNO_CLIENTE,
+                valorPedido,
+                pedido
+        );
+
+        movimentacaoContaService.registrar(
+                contaEmpresa,
+                TipoMovimentacao.ESTORNO_EMPRESA,
+                valorPedido,
+                pedido
+        );
     }
-
 }

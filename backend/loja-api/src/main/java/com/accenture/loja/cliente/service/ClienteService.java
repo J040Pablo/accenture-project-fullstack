@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Random;
+import com.accenture.loja.shared.enums.TipoTitularConta;
 
 @Service
 @RequiredArgsConstructor
@@ -53,9 +54,10 @@ public class ClienteService {
                 .build();
 
         ContaCorrente contaCorrente = ContaCorrente.builder()
-                .numeroConta(gerarNumeroConta())
-                .saldo(BigDecimal.ZERO)
-                .build();
+            .numeroConta(gerarNumeroConta())
+            .saldo(BigDecimal.ZERO)
+            .tipoTitular(TipoTitularConta.CLIENTE)
+            .build();
 
         Cliente cliente = Cliente.builder()
                 .nome(dto.getNome())

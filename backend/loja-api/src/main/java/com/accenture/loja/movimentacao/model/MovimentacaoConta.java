@@ -36,7 +36,20 @@ public class MovimentacaoConta {
     @Column(nullable = false)
     private LocalDateTime dataHora;
 
+    @Column(nullable = false)
+    private String descricao;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pedido_id")
     private Pedido pedido;
+
+    @PrePersist
+    private void prePersist() {
+        if (dataHora == null) {
+            dataHora = LocalDateTime.now();
+        }
+        if (descricao == null || descricao.trim().isEmpty()) {
+            throw new IllegalStateException("A descrição da movimentação é obrigatória.");
+        }
+    }
 }
