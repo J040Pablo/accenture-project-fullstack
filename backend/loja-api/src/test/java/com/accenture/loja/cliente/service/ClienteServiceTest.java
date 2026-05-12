@@ -2,9 +2,11 @@ package com.accenture.loja.cliente.service;
 
 import com.accenture.loja.cliente.dto.ClienteRequestDTO;
 import com.accenture.loja.cliente.dto.ClienteResponseDTO;
+import com.accenture.loja.cliente.mapper.ClienteMapper;
 import com.accenture.loja.cliente.model.Cliente;
 import com.accenture.loja.cliente.repository.ClienteRepository;
 import com.accenture.loja.conta.model.ContaCorrente;
+import com.accenture.loja.endereco.dto.EnderecoRequestDTO;
 import com.accenture.loja.endereco.dto.ViaCepResponseDTO;
 import com.accenture.loja.endereco.model.Endereco;
 import com.accenture.loja.endereco.service.ViaCepService;
@@ -27,32 +29,31 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ClienteServiceTest {
 
-    @Mock
-    private ClienteRepository clienteRepository;
-
-    @Mock
-    private ViaCepService viaCepService;
+    @Mock private ClienteRepository clienteRepository;
+    @Mock private ViaCepService viaCepService;
+    @Mock private ClienteMapper clienteMapper;
 
     @InjectMocks
-    private ClienteService clienteService;
+    private ClienteService service;
 
     private Cliente cliente;
-    private ClienteRequestDTO clienteRequestDTO;
+    private ClienteRequestDTO request;
+    private ClienteResponseDTO responseDTO;
+    private ViaCepResponseDTO viaCepResponse;
 
     @BeforeEach
-    void setup() {
-
+    void setUp() {
         Endereco endereco = Endereco.builder()
                 .id(1L)
-                .cep("58400-000")
-                .rua("Rua Teste")
-                .numero("123")
-                .bairro("Centro")
-                .cidade("Campina Grande")
-                .uf("PB")
+                .cep("01310-100")
+                .rua("Avenida Paulista")
+                .bairro("Bela Vista")
+                .cidade("São Paulo")
+                .uf("SP")
+                .numero("1000")
                 .build();
 
-        ContaCorrente contaCorrente = ContaCorrente.builder()
+        ContaCorrente conta = ContaCorrente.builder()
                 .id(1L)
                 .numeroConta("12345")
                 .saldo(BigDecimal.ZERO)
@@ -60,143 +61,194 @@ class ClienteServiceTest {
 
         cliente = Cliente.builder()
                 .id(1L)
-                .nome("Jader")
-                .cpf("12345678900")
-                .email("jader@email.com")
+                .nome("João Silva")
+                .cpf("12345678901")
+                .email("joao@email.com")
                 .endereco(endereco)
-                .contaCorrente(contaCorrente)
+                .contaCorrente(conta)
                 .build();
 
-        clienteRequestDTO = ClienteRequestDTO.builder()
-                .nome("Jader")
-                .cpf("12345678900")
-                .email("jader@email.com")
-                .endereco(
-                        com.accenture.loja.endereco.dto.EnderecoRequestDTO.builder()
-                                .cep("58400-000")
-                                .numero("123")
-                                .complemento("Apto 1")
-                                .build()
-                )
-                .build();
-    }
-
-    @Test
-    void deveCriarClienteComSucesso() {
-
-        ViaCepResponseDTO viaCepResponseDTO = ViaCepResponseDTO.builder()
-                .cep("58400-000")
-                .logradouro("Rua Teste")
-                .bairro("Centro")
-                .localidade("Campina Grande")
-                .uf("PB")
+        EnderecoRequestDTO enderecoRequest = EnderecoRequestDTO.builder()
+                .cep("01310100")
+                .numero("1000")
+                .complemento("Apto 1")
                 .build();
 
-        when(clienteRepository.findByCpf(any()))
-                .thenReturn(Optional.empty());
+        request = ClienteRequestDTO.builder()
+                .nome("João Silva")
+                .cpf("12345678901")
+                .email("joao@email.com")
+                .endereco(enderecoRequest)
+                .build();
 
-        when(clienteRepository.findByEmail(any()))
-                .thenReturn(Optional.empty());
+        responseDTO = ClienteResponseDTO.builder()
+                .id(1L)
+                .nome("João Silva")
+                .cpf("12345678901")
+                .email("joao@email.com")
+                .build();
 
-        when(viaCepService.buscarCep(any()))
-                .thenReturn(viaCepResponseDTO);
-
-        when(clienteRepository.save(any(Cliente.class)))
-                .thenReturn(cliente);
-
-        ClienteResponseDTO response =
-                clienteService.criarCliente(clienteRequestDTO);
-
-        assertNotNull(response);
-        assertEquals("Jader", response.getNome());
-        assertEquals("12345678900", response.getCpf());
-
-        verify(clienteRepository, times(1))
-                .save(any(Cliente.class));
+        viaCepResponse = new ViaCepResponseDTO();
+        viaCepResponse.setCep("01310-100");
+        viaCepResponse.setLogradouro("Avenida Paulista");
+        viaCepResponse.setBairro("Bela Vista");
+        viaCepResponse.setLocalidade("São Paulo");
+        viaCepResponse.setUf("SP");
     }
 
     @Test
-    void deveLancarExcecaoQuandoCpfJaExistir() {
+    void criarCliente_comDadosValidos_retornaResponse() {
+        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
+        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
+        when(viaCepService.buscarCep(any())).thenReturn(viaCepResponse);
+        when(clienteRepository.save(any())).thenReturn(cliente);
+        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
 
-        when(clienteRepository.findByCpf(any()))
-                .thenReturn(Optional.of(cliente));
+        ClienteResponseDTO resultado = service.criarCliente(request);
 
-        BusinessException exception = assertThrows(
-                BusinessException.class,
-                () -> clienteService.criarCliente(clienteRequestDTO)
-        );
-
-        assertEquals("CPF já cadastrado", exception.getMessage());
-
-        verify(clienteRepository, never())
-                .save(any());
+        assertNotNull(resultado);
+        assertEquals("João Silva", resultado.getNome());
+        verify(clienteRepository).save(any());
+        verify(clienteMapper).toResponseDTO(any());
     }
 
     @Test
-    void deveBuscarClientePorId() {
+    void criarCliente_cpfDuplicado_lancaExcecao() {
+        when(clienteRepository.findByCpf(any())).thenReturn(Optional.of(cliente));
 
-        when(clienteRepository.findById(1L))
-                .thenReturn(Optional.of(cliente));
-
-        ClienteResponseDTO response =
-                clienteService.buscarPorId(1L);
-
-        assertNotNull(response);
-        assertEquals("Jader", response.getNome());
+        assertThrows(BusinessException.class, () -> service.criarCliente(request));
+        verify(clienteRepository, never()).save(any());
+        verify(clienteMapper, never()).toResponseDTO(any());
     }
 
     @Test
-    void deveLancarExcecaoQuandoClienteNaoEncontrado() {
+    void criarCliente_emailDuplicado_lancaExcecao() {
+        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
+        when(clienteRepository.findByEmail(any())).thenReturn(Optional.of(cliente));
 
-        when(clienteRepository.findById(1L))
-                .thenReturn(Optional.empty());
-
-        BusinessException exception = assertThrows(
-                BusinessException.class,
-                () -> clienteService.buscarPorId(1L)
-        );
-
-        assertEquals("Cliente não encontrado", exception.getMessage());
+        assertThrows(BusinessException.class, () -> service.criarCliente(request));
+        verify(clienteRepository, never()).save(any());
+        verify(clienteMapper, never()).toResponseDTO(any());
     }
 
     @Test
-    void deveListarClientes() {
+    void criarCliente_cepInvalido_lancaExcecao() {
+        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
+        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
+        request.getEndereco().setCep("123");
 
-        when(clienteRepository.findAll())
-                .thenReturn(List.of(cliente));
-
-        List<ClienteResponseDTO> clientes =
-                clienteService.listarClientes();
-
-        assertFalse(clientes.isEmpty());
-        assertEquals(1, clientes.size());
+        assertThrows(RuntimeException.class, () -> service.criarCliente(request));
+        verify(clienteRepository, never()).save(any());
     }
 
     @Test
-    void deveAtualizarCliente() {
+    void criarCliente_cepNaoEncontrado_lancaExcecao() {
+        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
+        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
+        when(viaCepService.buscarCep(any())).thenReturn(null);
 
-        when(clienteRepository.findById(1L))
-                .thenReturn(Optional.of(cliente));
-
-        when(clienteRepository.save(any(Cliente.class)))
-                .thenReturn(cliente);
-
-        ClienteResponseDTO response =
-                clienteService.atualizarCliente(1L, clienteRequestDTO);
-
-        assertNotNull(response);
-        assertEquals("Jader", response.getNome());
+        assertThrows(RuntimeException.class, () -> service.criarCliente(request));
+        verify(clienteRepository, never()).save(any());
     }
 
     @Test
-    void deveDeletarCliente() {
+    void listarClientes_retornaLista() {
+        when(clienteRepository.findAll()).thenReturn(List.of(cliente));
+        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
 
-        when(clienteRepository.findById(1L))
-                .thenReturn(Optional.of(cliente));
+        List<ClienteResponseDTO> resultado = service.listarClientes();
 
-        clienteService.deletarCliente(1L);
+        assertEquals(1, resultado.size());
+        verify(clienteMapper).toResponseDTO(any());
+    }
 
-        verify(clienteRepository, times(1))
-                .delete(cliente);
+    @Test
+    void buscarPorId_encontrado_retornaResponse() {
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+        when(clienteMapper.toResponseDTO(cliente)).thenReturn(responseDTO);
+
+        ClienteResponseDTO resultado = service.buscarPorId(1L);
+
+        assertNotNull(resultado);
+        assertEquals(1L, resultado.getId());
+        verify(clienteMapper).toResponseDTO(cliente);
+    }
+
+    @Test
+    void buscarPorId_naoEncontrado_lancaExcecao() {
+        when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(BusinessException.class, () -> service.buscarPorId(99L));
+        verify(clienteMapper, never()).toResponseDTO(any());
+    }
+
+    @Test
+    void atualizarCliente_comDadosValidos_retornaAtualizado() {
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+        when(clienteRepository.save(any())).thenReturn(cliente);
+        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+        ClienteResponseDTO resultado = service.atualizarCliente(1L, request);
+
+        assertNotNull(resultado);
+        verify(clienteRepository).save(any());
+        verify(clienteMapper).toResponseDTO(any());
+    }
+
+    @Test
+    void atualizarCliente_naoEncontrado_lancaExcecao() {
+        when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(BusinessException.class, () -> service.atualizarCliente(99L, request));
+        verify(clienteMapper, never()).toResponseDTO(any());
+    }
+
+    @Test
+    void deletarCliente_encontrado_deletaComSucesso() {
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+
+        service.deletarCliente(1L);
+
+        verify(clienteRepository).delete(cliente);
+    }
+
+    @Test
+    void deletarCliente_naoEncontrado_lancaExcecao() {
+        when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(BusinessException.class, () -> service.deletarCliente(99L));
+    }
+    @Test
+    void criarCliente_cepNulo_lancaExcecao() {
+        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
+        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
+        request.getEndereco().setCep(null);
+
+        assertThrows(RuntimeException.class, () -> service.criarCliente(request));
+        verify(clienteRepository, never()).save(any());
+    }
+
+    @Test
+    void criarCliente_cepEmBranco_lancaExcecao() {
+        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
+        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
+        request.getEndereco().setCep("   ");
+
+        assertThrows(RuntimeException.class, () -> service.criarCliente(request));
+        verify(clienteRepository, never()).save(any());
+    }
+
+    @Test
+    void criarCliente_cepComTraco_valido() {
+        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
+        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
+        when(viaCepService.buscarCep(any())).thenReturn(viaCepResponse);
+        when(clienteRepository.save(any())).thenReturn(cliente);
+        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+        request.getEndereco().setCep("01310-100");
+
+        ClienteResponseDTO resultado = service.criarCliente(request);
+        assertNotNull(resultado);
     }
 }

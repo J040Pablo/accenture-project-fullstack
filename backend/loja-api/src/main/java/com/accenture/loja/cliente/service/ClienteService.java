@@ -28,7 +28,6 @@ public class ClienteService {
     private final ClienteMapper clienteMapper;
 
     public ClienteResponseDTO criarCliente(ClienteRequestDTO dto) {
-        //validarDadosCliente(dto);
         validarCpf(dto.getCpf());
         validarEmail(dto.getEmail());
 
@@ -144,4 +143,5 @@ public class ClienteService {
             throw new ResourceNotFoundException("Número do endereço é obrigatório");
         }
     }
+
 }
