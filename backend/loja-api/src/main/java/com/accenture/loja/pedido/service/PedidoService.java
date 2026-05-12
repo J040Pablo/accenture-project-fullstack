@@ -4,7 +4,6 @@ import com.accenture.loja.cliente.model.Cliente;
 import com.accenture.loja.cliente.repository.ClienteRepository;
 import com.accenture.loja.conta.model.ContaCorrente;
 import com.accenture.loja.conta.repository.ContaCorrenteRepository;
-import com.accenture.loja.movimentacao.model.MovimentacaoConta;
 import com.accenture.loja.movimentacao.service.MovimentacaoContaService;
 import com.accenture.loja.pedido.model.ItemPedido;
 import com.accenture.loja.pedido.model.Pedido;
@@ -13,7 +12,6 @@ import com.accenture.loja.pedido.dto.ItemPedidoRequestDTO;
 import com.accenture.loja.pedido.repository.PedidoRepository;
 import com.accenture.loja.produto.model.Produto;
 import com.accenture.loja.produto.repository.ProdutoRepository;
-import com.accenture.loja.movimentacao.repository.MovimentacaoContaRepository;
 import com.accenture.loja.shared.enums.StatusPedido;
 import com.accenture.loja.shared.enums.TipoMovimentacao;
 import com.accenture.loja.shared.exception.RegraNegocioException;
@@ -23,6 +21,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +35,17 @@ public class PedidoService {
     private final ProdutoRepository produtoRepository;
     private final ContaCorrenteRepository contaCorrenteRepository;
     private final MovimentacaoContaService movimentacaoContaService;
+
+    @Transactional
+    public Pedido buscarPedidoPorId(Long idPedido) {
+        return pedidoRepository.findById(idPedido)
+                .orElseThrow(() -> new RegraNegocioException("Pedido não encontrado."));
+    }
+
+    @Transactional
+    public List<Pedido> listarPedidos() {
+        return pedidoRepository.findAll();
+    }
 
     @Transactional
     public Pedido criarPedido(CriarPedidoRequestDTO request) {
@@ -61,6 +72,18 @@ public class PedidoService {
 
             Produto produto = produtoRepository.findById(itemDto.getProdutoId())
                     .orElseThrow(() -> new RegraNegocioException("Produto não encontrado."));
+
+            if (!produto.getAtivo()) {
+                throw new RegraNegocioException(
+                        "Não é possível criar pedido com produto inativo: " + produto.getNome());
+            }
+
+            if (produto.getEstoque() < itemDto.getQuantidade()) {
+                throw new RegraNegocioException(
+                        "Estoque insuficiente para o produto: " + produto.getNome() +
+                                ". Disponível: " + produto.getEstoque() +
+                                ", Solicitado: " + itemDto.getQuantidade());
+            }
 
             BigDecimal precoUnitario = produto.getPreco();
             BigDecimal subtotal = precoUnitario.multiply(new BigDecimal(itemDto.getQuantidade()));
@@ -103,10 +126,15 @@ public class PedidoService {
         // Validação e baixa de estoque
         for (ItemPedido item : pedido.getItens()) {
             Produto produto = item.getProduto();
+
+            if (!produto.getAtivo()) {
+                throw new RegraNegocioException(
+                        "Não é possível reservar produto inativo: " + produto.getNome());
+            }
+
             if (produto.getEstoque() < item.getQuantidade()) {
                 throw new RegraNegocioException("Estoque insuficiente para o produto: " + produto.getNome());
             }
-            // Baixa no estoque
             produto.setEstoque(produto.getEstoque() - item.getQuantidade());
             produtoRepository.save(produto);
         }
@@ -126,7 +154,9 @@ public class PedidoService {
             throw new RegraNegocioException("Apenas pedidos RESERVADOS podem ser pagos.");
         }
 
-        ContaCorrente contaCliente = pedido.getCliente().getContaCorrente();
+        ContaCorrente contaCliente = contaCorrenteRepository.findById(pedido.getCliente().getContaCorrente().getId())
+                .orElseThrow(() -> new RegraNegocioException("Conta do cliente não encontrada."));
+
         ContaCorrente contaEmpresa = contaCorrenteRepository.findById(1L)
                 .orElseThrow(() -> new RegraNegocioException("Conta da empresa não configurada."));
 
@@ -149,7 +179,11 @@ public class PedidoService {
         return pedidoRepository.save(pedido);
     }
     @Transactional
-    public Pedido cancelarPedido(Long idPedido) {
+    public Pedido cancelarPedido(Long idPedido, String motivoCancelamento) {
+        if (motivoCancelamento == null || motivoCancelamento.trim().isEmpty()) {
+            throw new RegraNegocioException("Motivo do cancelamento é obrigatório.");
+        }
+
         Pedido pedido = pedidoRepository.findById(idPedido)
                 .orElseThrow(() -> new RegraNegocioException("Pedido não encontrado."));
 
@@ -176,6 +210,8 @@ public class PedidoService {
         // requisito: status muda para cancelado
         pedido.setStatus(StatusPedido.CANCELADO);
         pedido.setDataCancelamento(LocalDateTime.now());
+        pedido.setMotivoCancelamento(motivoCancelamento);
+
         return pedidoRepository.save(pedido);
     }
 

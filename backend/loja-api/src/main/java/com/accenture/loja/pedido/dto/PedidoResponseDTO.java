@@ -22,4 +22,7 @@ public class PedidoResponseDTO {
     private BigDecimal desconto;
     private BigDecimal totalBruto;
     private BigDecimal totalFinal;
+    private LocalDateTime dataPagamento;
+    private LocalDateTime dataCancelamento;
+    private String motivoCancelamento;
 }
