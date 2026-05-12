@@ -1,6 +1,7 @@
 package com.accenture.loja.pedido.controller;
 
 import com.accenture.loja.pedido.model.Pedido;
+import com.accenture.loja.pedido.dto.CancelarPedidoRequestDTO;
 import com.accenture.loja.pedido.dto.CriarPedidoRequestDTO;
 import com.accenture.loja.pedido.dto.PedidoResponseDTO;
 import com.accenture.loja.pedido.service.PedidoService;
@@ -27,12 +28,17 @@ public class PedidoController {
 
     @GetMapping
     public ResponseEntity<List<PedidoResponseDTO>> listarPedidos() {
-        return ResponseEntity.ok(List.of());
+        List<Pedido> pedidos = pedidoService.listarPedidos();
+        List<PedidoResponseDTO> dtos = pedidos.stream()
+                .map(this::mapToResponseDTO)
+                .toList();
+        return ResponseEntity.ok(dtos);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<PedidoResponseDTO> buscarPedidoPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(new PedidoResponseDTO());
+        Pedido pedido = pedidoService.buscarPedidoPorId(id);
+        return ResponseEntity.ok(mapToResponseDTO(pedido));
     }
 
     @PostMapping("/{id}/reservar")
@@ -46,24 +52,28 @@ public class PedidoController {
         Pedido pedido = pedidoService.pagarPedido(id);
         return ResponseEntity.ok(mapToResponseDTO(pedido));
     }
-
     @PostMapping("/{id}/cancelar")
-    public ResponseEntity<PedidoResponseDTO> cancelarPedido(@PathVariable Long id) {
-        Pedido pedido = pedidoService.cancelarPedido(id);
+    public ResponseEntity<PedidoResponseDTO> cancelarPedido(
+            @PathVariable Long id,
+            @RequestBody @Valid CancelarPedidoRequestDTO request) {
+        Pedido pedido = pedidoService.cancelarPedido(id, request.getMotivoCancelamento());
         return ResponseEntity.ok(mapToResponseDTO(pedido));
     }
 
     private PedidoResponseDTO mapToResponseDTO(Pedido pedido) {
-        PedidoResponseDTO dto = new PedidoResponseDTO();
-        dto.setIdPedido(pedido.getIdPedido());
-        dto.setClienteId(pedido.getCliente().getId());
-        dto.setStatus(pedido.getStatus().name());
-        dto.setDesconto(pedido.getDesconto());
-        dto.setTotalBruto(pedido.getTotalBruto());
-        dto.setTotalFinal(pedido.getTotalFinal());
-        dto.setDataCriacao(pedido.getDataCriacao());
-        dto.setDataReserva(pedido.getDataReserva());
-        return dto;
+        return PedidoResponseDTO.builder()
+                .idPedido(pedido.getIdPedido())
+                .clienteId(pedido.getCliente().getId())
+                .status(pedido.getStatus().name())
+                .dataCriacao(pedido.getDataCriacao())
+                .dataReserva(pedido.getDataReserva())
+                .dataPagamento(pedido.getDataPagamento())
+                .dataCancelamento(pedido.getDataCancelamento())
+                .motivoCancelamento(pedido.getMotivoCancelamento())
+                .desconto(pedido.getDesconto())
+                .totalBruto(pedido.getTotalBruto())
+                .totalFinal(pedido.getTotalFinal())
+                .build();
     }
 
 }

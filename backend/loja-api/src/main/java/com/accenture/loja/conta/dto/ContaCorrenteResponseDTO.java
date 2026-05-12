@@ -6,6 +6,9 @@ import lombok.*;
 import java.math.BigDecimal;
 
 
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 @Getter
 public class ContaCorrenteResponseDTO {

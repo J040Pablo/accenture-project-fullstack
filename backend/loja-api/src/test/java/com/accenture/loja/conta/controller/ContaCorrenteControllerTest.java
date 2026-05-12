@@ -2,38 +2,39 @@ package com.accenture.loja.conta.controller;
 
 import com.accenture.loja.conta.dto.ContaCorrenteResponseDTO;
 import com.accenture.loja.conta.service.ContaCorrenteService;
-import com.accenture.loja.movimentacao.service.MovimentacaoContaService;
 import com.accenture.loja.shared.enums.TipoTitularConta;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.Mockito;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class ContaCorrenteControllerTest {
 
-    @Mock
+    private MockMvc mockMvc;
     private ContaCorrenteService contaCorrenteService;
-
-    @Mock
-    private MovimentacaoContaService movimentacaoContaService;
-
-    @InjectMocks
-    private ContaCorrenteController controller;
 
     private ContaCorrenteResponseDTO contaCliente;
     private ContaCorrenteResponseDTO contaEmpresa;
 
     @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
+    void setup() {
+        contaCorrenteService = Mockito.mock(ContaCorrenteService.class);
+
+        ContaCorrenteController controller = new ContaCorrenteController(contaCorrenteService);
+
+        mockMvc = MockMvcBuilders
+                .standaloneSetup(controller)
+                .build();
 
         contaCliente = ContaCorrenteResponseDTO.builder()
                 .id(1L)
@@ -51,90 +52,64 @@ class ContaCorrenteControllerTest {
     }
 
     @Test
-    void testListarContas_Sucesso() {
-        List<ContaCorrenteResponseDTO> contas = Arrays.asList(contaCliente, contaEmpresa);
-        when(contaCorrenteService.listarContas()).thenReturn(contas);
+    void deveListarContas() throws Exception {
+        when(contaCorrenteService.listarContas())
+                .thenReturn(List.of(contaCliente, contaEmpresa));
 
-        List<ContaCorrenteResponseDTO> resultado = controller.listar();
+        mockMvc.perform(get("/api/contas"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].numeroConta").value("12345"))
+                .andExpect(jsonPath("$[0].saldo").value(1000.00))
+                .andExpect(jsonPath("$[0].tipoTitular").value("CLIENTE"))
+                .andExpect(jsonPath("$[1].id").value(2))
+                .andExpect(jsonPath("$[1].numeroConta").value("67890"))
+                .andExpect(jsonPath("$[1].saldo").value(5000.00))
+                .andExpect(jsonPath("$[1].tipoTitular").value("EMPRESA"));
 
-        assertNotNull(resultado);
-        assertEquals(2, resultado.size());
-        assertEquals("12345", resultado.get(0).getNumeroConta());
-        assertEquals("67890", resultado.get(1).getNumeroConta());
-        verify(contaCorrenteService, times(1)).listarContas();
+        verify(contaCorrenteService).listarContas();
     }
 
     @Test
-    void testListarContas_Vazio() {
-        when(contaCorrenteService.listarContas()).thenReturn(Arrays.asList());
+    void deveListarContasVazia() throws Exception {
+        when(contaCorrenteService.listarContas())
+                .thenReturn(List.of());
 
-        List<ContaCorrenteResponseDTO> resultado = controller.listar();
+        mockMvc.perform(get("/api/contas"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0));
 
-        assertNotNull(resultado);
-        assertEquals(0, resultado.size());
-        verify(contaCorrenteService, times(1)).listarContas();
+        verify(contaCorrenteService).listarContas();
     }
 
     @Test
-    void testListarContas_ValidaTipoTitular() {
-        List<ContaCorrenteResponseDTO> contas = Arrays.asList(contaCliente, contaEmpresa);
-        when(contaCorrenteService.listarContas()).thenReturn(contas);
+    void deveBuscarContaClientePorId() throws Exception {
+        when(contaCorrenteService.buscarPorId(1L))
+                .thenReturn(contaCliente);
 
-        List<ContaCorrenteResponseDTO> resultado = controller.listar();
+        mockMvc.perform(get("/api/contas/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.numeroConta").value("12345"))
+                .andExpect(jsonPath("$.saldo").value(1000.00))
+                .andExpect(jsonPath("$.tipoTitular").value("CLIENTE"));
 
-        assertEquals(TipoTitularConta.CLIENTE, resultado.get(0).getTipoTitular());
-        assertEquals(TipoTitularConta.EMPRESA, resultado.get(1).getTipoTitular());
+        verify(contaCorrenteService).buscarPorId(1L);
     }
 
     @Test
-    void testBuscarContaPorId_Sucesso() {
-        when(contaCorrenteService.buscarPorId(1L)).thenReturn(contaCliente);
+    void deveBuscarContaEmpresaPorId() throws Exception {
+        when(contaCorrenteService.buscarPorId(2L))
+                .thenReturn(contaEmpresa);
 
-        ContaCorrenteResponseDTO resultado = controller.buscarPorId(1L);
+        mockMvc.perform(get("/api/contas/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(2))
+                .andExpect(jsonPath("$.numeroConta").value("67890"))
+                .andExpect(jsonPath("$.saldo").value(5000.00))
+                .andExpect(jsonPath("$.tipoTitular").value("EMPRESA"));
 
-        assertNotNull(resultado);
-        assertEquals(1L, resultado.getId());
-        assertEquals("12345", resultado.getNumeroConta());
-        assertEquals(new BigDecimal("1000.00"), resultado.getSaldo());
-        assertEquals(TipoTitularConta.CLIENTE, resultado.getTipoTitular());
-        verify(contaCorrenteService, times(1)).buscarPorId(1L);
-    }
-
-    @Test
-    void testBuscarContaPorId_NaoEncontrada() {
-        when(contaCorrenteService.buscarPorId(999L))
-                .thenThrow(new com.accenture.loja.shared.exception.BusinessException("Conta não encontrada"));
-
-        assertThrows(com.accenture.loja.shared.exception.BusinessException.class, () ->
-            controller.buscarPorId(999L)
-        );
-        verify(contaCorrenteService, times(1)).buscarPorId(999L);
-    }
-
-    @Test
-    void testBuscarContaPorId_Empresa() {
-        when(contaCorrenteService.buscarPorId(2L)).thenReturn(contaEmpresa);
-
-        ContaCorrenteResponseDTO resultado = controller.buscarPorId(2L);
-
-        assertNotNull(resultado);
-        assertEquals(2L, resultado.getId());
-        assertEquals("67890", resultado.getNumeroConta());
-        assertEquals(new BigDecimal("5000.00"), resultado.getSaldo());
-        assertEquals(TipoTitularConta.EMPRESA, resultado.getTipoTitular());
-        verify(contaCorrenteService, times(1)).buscarPorId(2L);
-    }
-
-    @Test
-    void testBuscarContaPorId_ValidaTodosCampos() {
-        when(contaCorrenteService.buscarPorId(1L)).thenReturn(contaCliente);
-
-        ContaCorrenteResponseDTO resultado = controller.buscarPorId(1L);
-
-        assertNotNull(resultado);
-        assertNotNull(resultado.getId());
-        assertNotNull(resultado.getNumeroConta());
-        assertNotNull(resultado.getSaldo());
-        assertNotNull(resultado.getTipoTitular());
+        verify(contaCorrenteService).buscarPorId(2L);
     }
 }

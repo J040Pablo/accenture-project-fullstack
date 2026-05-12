@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +33,17 @@ public class PedidoService {
     private final ProdutoRepository produtoRepository;
     private final ContaCorrenteService contaCorrenteService;
     private final MovimentacaoContaService movimentacaoContaService;
+
+    @Transactional
+    public Pedido buscarPedidoPorId(Long idPedido) {
+        return pedidoRepository.findById(idPedido)
+                .orElseThrow(() -> new RegraNegocioException("Pedido não encontrado."));
+    }
+
+    @Transactional
+    public List<Pedido> listarPedidos() {
+        return pedidoRepository.findAll();
+    }
 
     @Transactional
     public Pedido criarPedido(CriarPedidoRequestDTO request) {
@@ -58,6 +70,18 @@ public class PedidoService {
 
             Produto produto = produtoRepository.findById(itemDto.getProdutoId())
                     .orElseThrow(() -> new RegraNegocioException("Produto não encontrado."));
+
+            if (!Boolean.TRUE.equals(produto.getAtivo())) {
+                throw new RegraNegocioException(
+                        "Não é possível criar pedido com produto inativo: " + produto.getNome());
+            }
+
+            if (produto.getEstoque() < itemDto.getQuantidade()) {
+                throw new RegraNegocioException(
+                        "Estoque insuficiente para o produto: " + produto.getNome() +
+                                ". Disponível: " + produto.getEstoque() +
+                                ", Solicitado: " + itemDto.getQuantidade());
+            }
 
             BigDecimal precoUnitario = produto.getPreco();
             BigDecimal subtotal = precoUnitario.multiply(BigDecimal.valueOf(itemDto.getQuantidade()));
@@ -108,7 +132,7 @@ public class PedidoService {
 
             if (!Boolean.TRUE.equals(produto.getAtivo())) {
                 throw new RegraNegocioException("Produto inativo não pode ser reservado: " + produto.getNome());
-}
+            }
 
             if (produto.getEstoque() < item.getQuantidade()) {
                 throw new RegraNegocioException("Estoque insuficiente para o produto: " + produto.getNome());
@@ -174,7 +198,11 @@ public class PedidoService {
     }
 
     @Transactional
-    public Pedido cancelarPedido(Long idPedido) {
+    public Pedido cancelarPedido(Long idPedido, String motivoCancelamento) {
+        if (motivoCancelamento == null || motivoCancelamento.trim().isEmpty()) {
+            throw new RegraNegocioException("Motivo do cancelamento é obrigatório.");
+        }
+
         Pedido pedido = pedidoRepository.findById(idPedido)
                 .orElseThrow(() -> new RegraNegocioException("Pedido não encontrado."));
 
@@ -197,6 +225,7 @@ public class PedidoService {
 
         pedido.setStatus(StatusPedido.CANCELADO);
         pedido.setDataCancelamento(LocalDateTime.now());
+        pedido.setMotivoCancelamento(motivoCancelamento.trim());
 
         return pedidoRepository.save(pedido);
     }

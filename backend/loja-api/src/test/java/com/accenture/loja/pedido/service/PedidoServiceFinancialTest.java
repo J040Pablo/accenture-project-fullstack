@@ -7,7 +7,6 @@ import com.accenture.loja.conta.service.ContaCorrenteService;
 import com.accenture.loja.movimentacao.service.MovimentacaoContaService;
 import com.accenture.loja.pedido.model.Pedido;
 import com.accenture.loja.pedido.repository.PedidoRepository;
-import com.accenture.loja.produto.model.Produto;
 import com.accenture.loja.produto.repository.ProdutoRepository;
 import com.accenture.loja.shared.enums.StatusPedido;
 import com.accenture.loja.shared.enums.TipoMovimentacao;
@@ -51,6 +50,8 @@ class PedidoServiceFinancialTest {
     private Cliente cliente;
     private ContaCorrente contaCliente;
     private ContaCorrente contaEmpresa;
+
+    private static final String MOTIVO_CANCELAMENTO = "Cliente desistiu da compra";
 
     @BeforeEach
     void setUp() {
@@ -98,20 +99,25 @@ class PedidoServiceFinancialTest {
         assertNotNull(resultado);
         assertEquals(StatusPedido.PAGO, resultado.getStatus());
         assertNotNull(resultado.getDataPagamento());
-        
-        verify(contaCorrenteService, times(1)).transferir(contaCliente, contaEmpresa, new BigDecimal("500.00"));
+
+        verify(contaCorrenteService, times(1))
+                .transferir(contaCliente, contaEmpresa, new BigDecimal("500.00"));
+
         verify(movimentacaoContaService, times(1)).registrar(
                 eq(contaCliente),
                 eq(TipoMovimentacao.PAGAMENTO_PEDIDO),
                 eq(new BigDecimal("500.00")),
                 eq(pedido)
         );
+
         verify(movimentacaoContaService, times(1)).registrar(
                 eq(contaEmpresa),
                 eq(TipoMovimentacao.RECEBIMENTO_EMPRESA),
                 eq(new BigDecimal("500.00")),
                 eq(pedido)
         );
+
+        verify(pedidoRepository, times(1)).save(pedido);
     }
 
     @Test
@@ -119,6 +125,10 @@ class PedidoServiceFinancialTest {
         when(pedidoRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(RegraNegocioException.class, () -> service.pagarPedido(999L));
+
+        verify(contaCorrenteService, never()).buscarContaEmpresa();
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
     }
 
     @Test
@@ -127,6 +137,10 @@ class PedidoServiceFinancialTest {
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
 
         assertThrows(RegraNegocioException.class, () -> service.pagarPedido(1L));
+
+        verify(contaCorrenteService, never()).buscarContaEmpresa();
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
     }
 
     @Test
@@ -135,6 +149,10 @@ class PedidoServiceFinancialTest {
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
 
         assertThrows(RegraNegocioException.class, () -> service.pagarPedido(1L));
+
+        verify(contaCorrenteService, never()).buscarContaEmpresa();
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
     }
 
     @Test
@@ -144,15 +162,50 @@ class PedidoServiceFinancialTest {
                 .thenThrow(new RegraNegocioException("Conta da empresa não encontrada."));
 
         assertThrows(RegraNegocioException.class, () -> service.pagarPedido(1L));
+
+        verify(contaCorrenteService, times(1)).buscarContaEmpresa();
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
     }
 
     @Test
     void testPagarPedido_SaldoInsuficiente() {
         contaCliente.setSaldo(new BigDecimal("100.00"));
+
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
         when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
 
         assertThrows(RegraNegocioException.class, () -> service.pagarPedido(1L));
+
+        verify(contaCorrenteService, times(1)).buscarContaEmpresa();
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void testPagarPedido_ValorPedidoNulo() {
+        pedido.setTotalFinal(null);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
+
+        assertThrows(RegraNegocioException.class, () -> service.pagarPedido(1L));
+
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void testPagarPedido_ValorPedidoNegativo() {
+        pedido.setTotalFinal(new BigDecimal("-10.00"));
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
+
+        assertThrows(RegraNegocioException.class, () -> service.pagarPedido(1L));
+
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
     }
 
     @Test
@@ -164,25 +217,31 @@ class PedidoServiceFinancialTest {
         when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
         when(pedidoRepository.save(any(Pedido.class))).thenReturn(pedido);
 
-        Pedido resultado = service.cancelarPedido(1L);
+        Pedido resultado = service.cancelarPedido(1L, MOTIVO_CANCELAMENTO);
 
         assertNotNull(resultado);
         assertEquals(StatusPedido.CANCELADO, resultado.getStatus());
+        assertEquals(MOTIVO_CANCELAMENTO, resultado.getMotivoCancelamento());
         assertNotNull(resultado.getDataCancelamento());
 
-        verify(contaCorrenteService, times(1)).transferir(contaEmpresa, contaCliente, new BigDecimal("500.00"));
+        verify(contaCorrenteService, times(1))
+                .transferir(contaEmpresa, contaCliente, new BigDecimal("500.00"));
+
         verify(movimentacaoContaService, times(1)).registrar(
                 eq(contaCliente),
                 eq(TipoMovimentacao.ESTORNO_CLIENTE),
                 eq(new BigDecimal("500.00")),
                 eq(pedido)
         );
+
         verify(movimentacaoContaService, times(1)).registrar(
                 eq(contaEmpresa),
                 eq(TipoMovimentacao.ESTORNO_EMPRESA),
                 eq(new BigDecimal("500.00")),
                 eq(pedido)
         );
+
+        verify(pedidoRepository, times(1)).save(pedido);
     }
 
     @Test
@@ -192,13 +251,16 @@ class PedidoServiceFinancialTest {
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
         when(pedidoRepository.save(any(Pedido.class))).thenReturn(pedido);
 
-        Pedido resultado = service.cancelarPedido(1L);
+        Pedido resultado = service.cancelarPedido(1L, MOTIVO_CANCELAMENTO);
 
         assertNotNull(resultado);
         assertEquals(StatusPedido.CANCELADO, resultado.getStatus());
-        
+        assertEquals(MOTIVO_CANCELAMENTO, resultado.getMotivoCancelamento());
+        assertNotNull(resultado.getDataCancelamento());
+
         verify(contaCorrenteService, never()).transferir(any(), any(), any());
         verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
+        verify(pedidoRepository, times(1)).save(pedido);
     }
 
     @Test
@@ -208,11 +270,45 @@ class PedidoServiceFinancialTest {
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
         when(pedidoRepository.save(any(Pedido.class))).thenReturn(pedido);
 
-        Pedido resultado = service.cancelarPedido(1L);
+        Pedido resultado = service.cancelarPedido(1L, MOTIVO_CANCELAMENTO);
 
         assertNotNull(resultado);
         assertEquals(StatusPedido.CANCELADO, resultado.getStatus());
-        
+        assertEquals(MOTIVO_CANCELAMENTO, resultado.getMotivoCancelamento());
+        assertNotNull(resultado.getDataCancelamento());
+
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
+        verify(pedidoRepository, times(1)).save(pedido);
+    }
+
+    @Test
+    void testCancelarPedido_MotivoNulo() {
+        assertThrows(RegraNegocioException.class, () -> service.cancelarPedido(1L, null));
+
+        verify(pedidoRepository, never()).findById(anyLong());
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void testCancelarPedido_MotivoVazio() {
+        assertThrows(RegraNegocioException.class, () -> service.cancelarPedido(1L, "   "));
+
+        verify(pedidoRepository, never()).findById(anyLong());
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void testCancelarPedido_PedidoNaoEncontrado() {
+        when(pedidoRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(
+                RegraNegocioException.class,
+                () -> service.cancelarPedido(999L, MOTIVO_CANCELAMENTO)
+        );
+
         verify(contaCorrenteService, never()).transferir(any(), any(), any());
         verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
     }
@@ -224,7 +320,13 @@ class PedidoServiceFinancialTest {
 
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
 
-        assertThrows(RegraNegocioException.class, () -> service.cancelarPedido(1L));
+        assertThrows(
+                RegraNegocioException.class,
+                () -> service.cancelarPedido(1L, MOTIVO_CANCELAMENTO)
+        );
+
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
     }
 
     @Test
@@ -235,7 +337,13 @@ class PedidoServiceFinancialTest {
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
         when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
 
-        assertThrows(RegraNegocioException.class, () -> service.cancelarPedido(1L));
+        assertThrows(
+                RegraNegocioException.class,
+                () -> service.cancelarPedido(1L, MOTIVO_CANCELAMENTO)
+        );
+
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
     }
 
     @Test
@@ -244,6 +352,12 @@ class PedidoServiceFinancialTest {
 
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
 
-        assertThrows(RegraNegocioException.class, () -> service.cancelarPedido(1L));
+        assertThrows(
+                RegraNegocioException.class,
+                () -> service.cancelarPedido(1L, MOTIVO_CANCELAMENTO)
+        );
+
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
     }
 }

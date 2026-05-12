@@ -11,6 +11,8 @@ import com.accenture.loja.endereco.dto.ViaCepResponseDTO;
 import com.accenture.loja.endereco.model.Endereco;
 import com.accenture.loja.endereco.service.ViaCepService;
 import com.accenture.loja.shared.exception.BusinessException;
+import com.accenture.loja.shared.exception.ResourceNotFoundException;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -27,11 +29,19 @@ public class ClienteService {
     private final ViaCepService viaCepService;
 
     public ClienteResponseDTO criarCliente(ClienteRequestDTO dto) {
-
+    	//validarDadosCliente(dto);
         validarCpf(dto.getCpf());
         validarEmail(dto.getEmail());
 
-        ViaCepResponseDTO viaCep = viaCepService.buscarCep(dto.getEndereco().getCep());
+        String cep = dto.getEndereco().getCep();
+
+        validarCep(cep);
+
+        ViaCepResponseDTO viaCep = viaCepService.buscarCep(cep);
+
+        if (viaCep == null || viaCep.getCep() == null) {
+            throw new RuntimeException("CEP não encontrado");
+        }
 
         Endereco endereco = Endereco.builder()
                 .cep(viaCep.getCep())
@@ -60,6 +70,19 @@ public class ClienteService {
         Cliente clienteSalvo = clienteRepository.save(cliente);
 
         return converterParaResponse(clienteSalvo);
+    }
+    
+    private void validarCep(String cep) {
+
+        if (cep == null || cep.isBlank()) {
+            throw new RuntimeException("CEP é obrigatório");
+        }
+
+        cep = cep.replace("-", "");
+
+        if (!cep.matches("\\d{8}")) {
+            throw new RuntimeException("CEP inválido");
+        }
     }
 
     public List<ClienteResponseDTO> listarClientes() {
@@ -148,5 +171,42 @@ public class ClienteService {
                                 .build()
                 )
                 .build();
+    }
+    
+    private void validarDadosCliente(ClienteRequestDTO dto) {
+
+        if (dto == null) {
+            throw new ResourceNotFoundException("Dados do cliente são obrigatórios");
+        }
+
+        if (dto.getNome() == null || dto.getNome().isBlank()) {
+        	throw new ResourceNotFoundException("Nome é obrigatório");
+        }
+
+        if (dto.getCpf() == null || dto.getCpf().isBlank()) {
+        	throw new ResourceNotFoundException("CPF é obrigatório");
+        }
+
+        if (dto.getEmail() == null || dto.getEmail().isBlank()) {
+        	throw new ResourceNotFoundException("Email é obrigatório");
+        }
+
+        if (dto.getEndereco() == null) {
+        	throw new ResourceNotFoundException("Endereço é obrigatório");
+        }
+
+        if (dto.getEndereco().getCep() == null
+                || dto.getEndereco().getCep().isBlank()) {
+
+        	throw new ResourceNotFoundException("CEP é obrigatório");
+        }
+
+        if (dto.getEndereco().getNumero() == null
+                || dto.getEndereco().getNumero().isBlank()) {
+
+        	throw new ResourceNotFoundException(
+                    "Número do endereço é obrigatório"
+            );
+        }
     }
 }

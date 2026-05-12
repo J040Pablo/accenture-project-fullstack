@@ -3,6 +3,7 @@ import com.accenture.loja.endereco.dto.EnderecoRequestDTO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 @Getter
@@ -18,9 +19,10 @@ public class ClienteRequestDTO {
     @NotBlank(message = "O CPF é obrigatório.")
     private String cpf;
 
-    @Email(message = "O Email é obrigatório.")
+    @NotBlank(message = "O Email é obrigatório.")
     private String email;
 
     @Valid
+    @NotNull(message = "O Endereco é obrigatorio")
     private EnderecoRequestDTO endereco;
 }
