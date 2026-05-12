@@ -33,8 +33,20 @@ public class ContaCorrenteService {
     }
 
     public ContaCorrente buscarContaEmpresa() {
-        return contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA)
-                .orElseThrow(() -> new RegraNegocioException("Conta da empresa não encontrada."));
+        List<ContaCorrente> contasEmpresa = contaCorrenteRepository.findAll()
+                .stream()
+                .filter(conta -> TipoTitularConta.EMPRESA.equals(conta.getTipoTitular()))
+                .toList();
+
+        if (contasEmpresa.isEmpty()) {
+            throw new RegraNegocioException("Conta da empresa não encontrada.");
+        }
+
+        if (contasEmpresa.size() > 1) {
+            throw new RegraNegocioException("Há mais de uma conta da empresa cadastrada.");
+        }
+
+        return contasEmpresa.get(0);
     }
 
     public boolean existeContaEmpresa() {
