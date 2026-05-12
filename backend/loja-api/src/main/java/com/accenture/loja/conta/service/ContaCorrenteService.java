@@ -37,6 +37,11 @@ public class ContaCorrenteService {
                 .orElseThrow(() -> new RegraNegocioException("Conta da empresa não encontrada."));
     }
 
+    public boolean existeContaEmpresa() {
+        return contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA)
+                .isPresent();
+    }
+
     public void transferir(ContaCorrente origem, ContaCorrente destino, BigDecimal valor) {
         if (origem == null) {
             throw new RegraNegocioException("Conta de origem não encontrada.");

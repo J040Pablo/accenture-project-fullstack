@@ -1,5 +1,7 @@
 package com.accenture.loja.empresa.service;
 
+import com.accenture.loja.conta.model.ContaCorrente;
+import com.accenture.loja.conta.service.ContaCorrenteService;
 import com.accenture.loja.empresa.dto.EmpresaRequestDTO;
 import com.accenture.loja.empresa.dto.EmpresaResponseDTO;
 import com.accenture.loja.empresa.model.Empresa;
@@ -7,6 +9,7 @@ import com.accenture.loja.empresa.repository.EmpresaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -18,12 +21,17 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
+import static com.accenture.loja.shared.enums.TipoTitularConta.EMPRESA;
+import com.accenture.loja.shared.exception.RegraNegocioException;
 
 @ExtendWith(MockitoExtension.class)
 class EmpresaServiceTest {
 
     @Mock
     private EmpresaRepository empresaRepository;
+
+    @Mock
+    private ContaCorrenteService contaCorrenteService;
 
     @InjectMocks
     private EmpresaService empresaService;
@@ -43,6 +51,8 @@ class EmpresaServiceTest {
         EmpresaRequestDTO request = criarRequestValido("Razao", "Fantasia", "11111111111111", "x@y.com", "1234");
 
         when(empresaRepository.existsByCnpj(request.cnpj())).thenReturn(false);
+        when(contaCorrenteService.existeContaEmpresa()).thenReturn(false);
+
         Empresa toSave = new Empresa(request.razaoSocial(), request.nomeFantasia(), request.cnpj(), request.email(), request.telefone());
         toSave.setId(10L);
         when(empresaRepository.save(any(Empresa.class))).thenReturn(toSave);
@@ -54,8 +64,33 @@ class EmpresaServiceTest {
         assertEquals(request.cnpj(), response.cnpj());
         assertTrue(response.ativo());
 
+        ArgumentCaptor<Empresa> empresaCaptor = ArgumentCaptor.forClass(Empresa.class);
+        verify(empresaRepository).save(empresaCaptor.capture());
+
+        assertNotNull(empresaCaptor.getValue().getContaCorrente());
+        assertEquals(EMPRESA, empresaCaptor.getValue().getContaCorrente().getTipoTitular());
+
         verify(empresaRepository).existsByCnpj(request.cnpj());
-        verify(empresaRepository).save(any(Empresa.class));
+        verify(contaCorrenteService).existeContaEmpresa();
+    }
+
+    @Test
+    void deveLancarQuandoJaExisteContaEmpresa() {
+        EmpresaRequestDTO request = criarRequestValido("Razao", "Fantasia", "33333333333333", "x@y.com", "1234");
+
+        when(empresaRepository.existsByCnpj(request.cnpj())).thenReturn(false);
+        when(contaCorrenteService.existeContaEmpresa()).thenReturn(true);
+
+        RegraNegocioException ex = assertThrows(
+            RegraNegocioException.class,
+                () -> empresaService.cadastrar(request)
+        );
+
+        assertEquals("Já existe uma conta da empresa cadastrada.", ex.getMessage());
+
+        verify(empresaRepository).existsByCnpj(request.cnpj());
+        verify(contaCorrenteService).existeContaEmpresa();
+        verify(empresaRepository, never()).save(any());
     }
 
     @Test

@@ -167,8 +167,8 @@ public class PedidoService {
 
         BigDecimal valorPedido = pedido.getTotalFinal();
 
-        if (valorPedido == null || valorPedido.compareTo(BigDecimal.ZERO) < 0) {
-            throw new RegraNegocioException("Valor do pedido inválido.");
+        if (valorPedido == null || valorPedido.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RegraNegocioException("Valor do pedido deve ser maior que zero.");
         }
 
         if (contaCliente.getSaldo().compareTo(valorPedido) < 0) {
@@ -254,8 +254,8 @@ public class PedidoService {
 
         BigDecimal valorPedido = pedido.getTotalFinal();
 
-        if (valorPedido == null || valorPedido.compareTo(BigDecimal.ZERO) < 0) {
-            throw new RegraNegocioException("Valor do pedido inválido.");
+        if (valorPedido == null || valorPedido.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RegraNegocioException("Valor do pedido deve ser maior que zero.");
         }
 
         if (contaEmpresa.getSaldo().compareTo(valorPedido) < 0) {

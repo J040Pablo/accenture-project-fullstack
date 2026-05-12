@@ -4,6 +4,8 @@ import com.accenture.loja.empresa.dto.EmpresaRequestDTO;
 import com.accenture.loja.empresa.dto.EmpresaResponseDTO;
 import com.accenture.loja.empresa.model.Empresa;
 import com.accenture.loja.empresa.repository.EmpresaRepository;
+import com.accenture.loja.conta.service.ContaCorrenteService;
+import com.accenture.loja.shared.exception.RegraNegocioException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,15 +19,21 @@ import com.accenture.loja.shared.enums.TipoTitularConta;
 public class EmpresaService {
 
     private final EmpresaRepository empresaRepository;
+    private final ContaCorrenteService contaCorrenteService;
 
-    public EmpresaService(EmpresaRepository empresaRepository) {
+    public EmpresaService(EmpresaRepository empresaRepository, ContaCorrenteService contaCorrenteService) {
         this.empresaRepository = empresaRepository;
+        this.contaCorrenteService = contaCorrenteService;
     }
 
     @Transactional
     public EmpresaResponseDTO cadastrar(EmpresaRequestDTO request) {
         if (empresaRepository.existsByCnpj(request.cnpj())) {
             throw new IllegalArgumentException("CNPJ já cadastrado");
+        }
+
+        if (contaCorrenteService.existeContaEmpresa()) {
+            throw new RegraNegocioException("Já existe uma conta da empresa cadastrada.");
         }
 
         Empresa empresa = new Empresa(

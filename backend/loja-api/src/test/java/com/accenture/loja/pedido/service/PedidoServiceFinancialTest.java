@@ -209,6 +209,19 @@ class PedidoServiceFinancialTest {
     }
 
     @Test
+    void testPagarPedido_ValorPedidoZero() {
+        pedido.setTotalFinal(BigDecimal.ZERO);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
+
+        assertThrows(RegraNegocioException.class, () -> service.pagarPedido(1L));
+
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
     void testCancelarPedido_PedidoPago_Sucesso() {
         pedido.setStatus(StatusPedido.PAGO);
         pedido.setDataPagamento(LocalDateTime.now());
@@ -333,6 +346,23 @@ class PedidoServiceFinancialTest {
     void testCancelarPedido_PedidoPago_SaldoEmpresaInsuficiente() {
         pedido.setStatus(StatusPedido.PAGO);
         contaEmpresa.setSaldo(new BigDecimal("100.00"));
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
+
+        assertThrows(
+                RegraNegocioException.class,
+                () -> service.cancelarPedido(1L, MOTIVO_CANCELAMENTO)
+        );
+
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+        verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void testCancelarPedido_PedidoPago_ValorZero() {
+        pedido.setStatus(StatusPedido.PAGO);
+        pedido.setTotalFinal(BigDecimal.ZERO);
 
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
         when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
