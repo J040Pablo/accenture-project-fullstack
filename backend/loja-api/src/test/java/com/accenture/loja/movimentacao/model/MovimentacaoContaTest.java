@@ -389,10 +389,74 @@ class MovimentacaoContaTest {
             assertEquals("Depósito realizado", mov.getDescricao());
             }
 
+            @Test
+            void testPreUpdateLancaExcecaoQuandoDescricaoForNula() throws Exception {
+            MovimentacaoConta mov = MovimentacaoConta.builder()
+                .id(1L)
+                .conta(contaCliente)
+                .tipo(TipoMovimentacao.DEPOSITO)
+                .valor(new BigDecimal("50.00"))
+                .dataHora(LocalDateTime.now())
+                .descricao(null)
+                .build();
+
+            InvocationTargetException exception = assertThrows(
+                InvocationTargetException.class,
+                () -> invokePreUpdate(mov)
+            );
+
+            assertInstanceOf(IllegalStateException.class, exception.getCause());
+            assertEquals("A descrição da movimentação é obrigatória.", exception.getCause().getMessage());
+            }
+
+            @Test
+            void testPreUpdateLancaExcecaoQuandoDescricaoForEmBranco() throws Exception {
+            MovimentacaoConta mov = MovimentacaoConta.builder()
+                .id(1L)
+                .conta(contaCliente)
+                .tipo(TipoMovimentacao.DEPOSITO)
+                .valor(new BigDecimal("50.00"))
+                .dataHora(LocalDateTime.now())
+                .descricao("   ")
+                .build();
+
+            InvocationTargetException exception = assertThrows(
+                InvocationTargetException.class,
+                () -> invokePreUpdate(mov)
+            );
+
+            assertInstanceOf(IllegalStateException.class, exception.getCause());
+            assertEquals("A descrição da movimentação é obrigatória.", exception.getCause().getMessage());
+            }
+
+            @Test
+            void testPreUpdateComDescricaoValidaNaoLancaExcecao() throws Exception {
+            MovimentacaoConta mov = MovimentacaoConta.builder()
+                .id(1L)
+                .conta(contaCliente)
+                .tipo(TipoMovimentacao.DEPOSITO)
+                .valor(new BigDecimal("50.00"))
+                .dataHora(LocalDateTime.now())
+                .descricao("Atualização da movimentação")
+                .build();
+
+            assertDoesNotThrow(() -> invokePreUpdate(mov));
+
+            assertEquals("Atualização da movimentação", mov.getDescricao());
+            }
+
             private static void invokePrePersist(MovimentacaoConta movimentacaoConta)
                 throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 
             Method method = MovimentacaoConta.class.getDeclaredMethod("prePersist");
+            method.setAccessible(true);
+            method.invoke(movimentacaoConta);
+            }
+
+            private static void invokePreUpdate(MovimentacaoConta movimentacaoConta)
+                throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+
+            Method method = MovimentacaoConta.class.getDeclaredMethod("preUpdate");
             method.setAccessible(true);
             method.invoke(movimentacaoConta);
             }
