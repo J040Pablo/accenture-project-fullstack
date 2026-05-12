@@ -48,5 +48,8 @@ public class MovimentacaoConta {
         if (dataHora == null) {
             dataHora = LocalDateTime.now();
         }
+        if (descricao == null || descricao.trim().isEmpty()) {
+            throw new IllegalStateException("A descrição da movimentação é obrigatória.");
+        }
     }
 }
