@@ -1,9 +1,9 @@
 package com.accenture.loja.pedido.controller;
 
-import com.accenture.loja.pedido.model.Pedido;
 import com.accenture.loja.pedido.dto.CancelarPedidoRequestDTO;
 import com.accenture.loja.pedido.dto.CriarPedidoRequestDTO;
 import com.accenture.loja.pedido.dto.PedidoResponseDTO;
+import com.accenture.loja.pedido.mapper.PedidoMapper;
 import com.accenture.loja.pedido.service.PedidoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,61 +19,42 @@ import java.util.List;
 public class PedidoController {
 
     private final PedidoService pedidoService;
+    private final PedidoMapper pedidoMapper;
 
     @PostMapping
     public ResponseEntity<PedidoResponseDTO> criarPedido(@RequestBody @Valid CriarPedidoRequestDTO request) {
-        Pedido pedido = pedidoService.criarPedido(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(mapToResponseDTO(pedido));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(pedidoMapper.toResponseDTO(pedidoService.criarPedido(request)));
     }
 
     @GetMapping
     public ResponseEntity<List<PedidoResponseDTO>> listarPedidos() {
-        List<Pedido> pedidos = pedidoService.listarPedidos();
-        List<PedidoResponseDTO> dtos = pedidos.stream()
-                .map(this::mapToResponseDTO)
-                .toList();
-        return ResponseEntity.ok(dtos);
+        return ResponseEntity.ok(pedidoService.listarPedidos()
+                .stream()
+                .map(pedidoMapper::toResponseDTO)
+                .toList());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<PedidoResponseDTO> buscarPedidoPorId(@PathVariable Long id) {
-        Pedido pedido = pedidoService.buscarPedidoPorId(id);
-        return ResponseEntity.ok(mapToResponseDTO(pedido));
+        return ResponseEntity.ok(pedidoMapper.toResponseDTO(pedidoService.buscarPedidoPorId(id)));
     }
 
     @PostMapping("/{id}/reservar")
     public ResponseEntity<PedidoResponseDTO> reservarPedido(@PathVariable Long id) {
-        Pedido pedido = pedidoService.reservarPedido(id);
-        return ResponseEntity.ok(mapToResponseDTO(pedido));
+        return ResponseEntity.ok(pedidoMapper.toResponseDTO(pedidoService.reservarPedido(id)));
     }
 
     @PostMapping("/{id}/pagar")
     public ResponseEntity<PedidoResponseDTO> pagarPedido(@PathVariable Long id) {
-        Pedido pedido = pedidoService.pagarPedido(id);
-        return ResponseEntity.ok(mapToResponseDTO(pedido));
+        return ResponseEntity.ok(pedidoMapper.toResponseDTO(pedidoService.pagarPedido(id)));
     }
+
     @PostMapping("/{id}/cancelar")
     public ResponseEntity<PedidoResponseDTO> cancelarPedido(
             @PathVariable Long id,
             @RequestBody @Valid CancelarPedidoRequestDTO request) {
-        Pedido pedido = pedidoService.cancelarPedido(id, request.getMotivoCancelamento());
-        return ResponseEntity.ok(mapToResponseDTO(pedido));
+        return ResponseEntity.ok(pedidoMapper.toResponseDTO(
+                pedidoService.cancelarPedido(id, request.getMotivoCancelamento())));
     }
-
-    private PedidoResponseDTO mapToResponseDTO(Pedido pedido) {
-        return PedidoResponseDTO.builder()
-                .idPedido(pedido.getIdPedido())
-                .clienteId(pedido.getCliente().getId())
-                .status(pedido.getStatus().name())
-                .dataCriacao(pedido.getDataCriacao())
-                .dataReserva(pedido.getDataReserva())
-                .dataPagamento(pedido.getDataPagamento())
-                .dataCancelamento(pedido.getDataCancelamento())
-                .motivoCancelamento(pedido.getMotivoCancelamento())
-                .desconto(pedido.getDesconto())
-                .totalBruto(pedido.getTotalBruto())
-                .totalFinal(pedido.getTotalFinal())
-                .build();
-    }
-
 }
