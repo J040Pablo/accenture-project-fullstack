@@ -258,6 +258,10 @@ public class PedidoService {
             throw new RegraNegocioException("Valor do pedido deve ser maior que zero.");
         }
 
+        if (valorPedido.compareTo(BigDecimal.ZERO) == 0) {
+            return;
+        }
+
         if (contaEmpresa.getSaldo().compareTo(valorPedido) < 0) {
             throw new RegraNegocioException("Saldo insuficiente na conta da empresa para realizar estorno.");
         }
