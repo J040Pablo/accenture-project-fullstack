@@ -18,4 +18,6 @@ public class ViaCepResponseDTO {
     private String localidade;
 
     private String uf;
+    
+    private Boolean erro;
 }
