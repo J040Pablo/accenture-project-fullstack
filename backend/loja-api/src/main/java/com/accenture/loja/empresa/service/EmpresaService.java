@@ -7,7 +7,11 @@ import com.accenture.loja.empresa.repository.EmpresaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Random;
+import com.accenture.loja.conta.model.ContaCorrente;
+import com.accenture.loja.shared.enums.TipoTitularConta;
 
 @Service
 public class EmpresaService {
@@ -32,9 +36,22 @@ public class EmpresaService {
                 request.telefone()
         );
 
+        ContaCorrente conta = ContaCorrente.builder()
+            .numeroConta(gerarNumeroConta())
+            .saldo(BigDecimal.ZERO)
+            .tipoTitular(TipoTitularConta.EMPRESA)
+            .build();
+
+        empresa.setContaCorrente(conta);
+
         Empresa empresaSalva = empresaRepository.save(empresa);
 
         return toResponseDTO(empresaSalva);
+    }
+
+    private String gerarNumeroConta() {
+        Random random = new Random();
+        return String.valueOf(10000 + random.nextInt(90000));
     }
 
     public List<EmpresaResponseDTO> listar() {

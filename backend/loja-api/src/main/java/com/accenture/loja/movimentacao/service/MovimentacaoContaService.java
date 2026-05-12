@@ -7,6 +7,7 @@ import com.accenture.loja.movimentacao.model.MovimentacaoConta;
 import com.accenture.loja.movimentacao.repository.MovimentacaoContaRepository;
 import com.accenture.loja.pedido.model.Pedido;
 import com.accenture.loja.shared.enums.TipoMovimentacao;
+import com.accenture.loja.shared.exception.RegraNegocioException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -35,19 +36,54 @@ public class MovimentacaoContaService {
                 .toList();
     }
 
+    public MovimentacaoConta registrar(
+            ContaCorrente conta,
+            TipoMovimentacao tipo,
+            BigDecimal valor,
+            Pedido pedido
+    ) {
+        validarMovimentacao(conta, tipo, valor);
 
-    public MovimentacaoConta registar(ContaCorrente conta,
-                                      TipoMovimentacao tipo,
-                                      BigDecimal valor,
-                                      Pedido pedido) {
         MovimentacaoConta mov = MovimentacaoConta.builder()
                 .conta(conta)
                 .tipo(tipo)
                 .valor(valor)
                 .pedido(pedido)
+                .descricao(gerarDescricao(tipo, pedido))
                 .dataHora(LocalDateTime.now())
                 .build();
 
         return repository.save(mov);
+    }
+
+    private void validarMovimentacao(
+            ContaCorrente conta,
+            TipoMovimentacao tipo,
+            BigDecimal valor
+    ) {
+        if (conta == null) {
+            throw new RegraNegocioException("Conta da movimentação é obrigatória.");
+        }
+
+        if (tipo == null) {
+            throw new RegraNegocioException("Tipo da movimentação é obrigatório.");
+        }
+
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RegraNegocioException("Valor da movimentação deve ser maior que zero.");
+        }
+    }
+
+    private String gerarDescricao(TipoMovimentacao tipo, Pedido pedido) {
+        Long pedidoId = pedido != null ? pedido.getIdPedido() : null;
+
+        return switch (tipo) {
+            case DEPOSITO -> "Depósito em conta";
+            case SAQUE -> "Saque em conta";
+            case PAGAMENTO_PEDIDO -> "Pagamento do pedido #" + pedidoId;
+            case RECEBIMENTO_EMPRESA -> "Recebimento do pedido #" + pedidoId;
+            case ESTORNO_CLIENTE -> "Estorno ao cliente do pedido #" + pedidoId;
+            case ESTORNO_EMPRESA -> "Estorno pago pela empresa do pedido #" + pedidoId;
+        };
     }
 }

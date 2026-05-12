@@ -12,9 +12,11 @@ public class MovimentacaoContaMapper {
                 m.getId(),
                 m.getConta().getId(),
                 m.getConta().getNumeroConta(),
+                m.getConta().getTipoTitular(),
                 m.getTipo(),
                 m.getValor(),
                 m.getDataHora(),
+                m.getDescricao(),
                 m.getPedido() != null ? m.getPedido().getIdPedido() : null
         );
     }
