@@ -42,7 +42,6 @@ class ContaCorrenteServiceTest {
 
     @BeforeEach
     void setup() {
-
         contaCliente = ContaCorrente.builder()
                 .id(1L)
                 .numeroConta("12345")
@@ -74,7 +73,6 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveListarContas() {
-
         when(contaCorrenteRepository.findAll())
                 .thenReturn(List.of(contaCliente, contaEmpresa));
 
@@ -100,7 +98,6 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveRetornarListaVazia() {
-
         when(contaCorrenteRepository.findAll())
                 .thenReturn(List.of());
 
@@ -117,7 +114,6 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveBuscarContaPorId() {
-
         when(contaCorrenteRepository.findById(1L))
                 .thenReturn(Optional.of(contaCliente));
 
@@ -137,7 +133,6 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveLancarExcecaoQuandoContaNaoEncontrada() {
-
         when(contaCorrenteRepository.findById(99L))
                 .thenReturn(Optional.empty());
 
@@ -154,7 +149,6 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveBuscarContaEmpresa() {
-
         when(contaCorrenteRepository.findByTipoTitular(
                 TipoTitularConta.EMPRESA))
                 .thenReturn(List.of(contaEmpresa));
@@ -169,7 +163,6 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveLancarExcecaoQuandoContaEmpresaNaoEncontrada() {
-
         when(contaCorrenteRepository.findByTipoTitular(
                 TipoTitularConta.EMPRESA))
                 .thenReturn(List.of());
@@ -187,7 +180,6 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveLancarExcecaoQuandoExistirMaisDeUmaContaEmpresa() {
-
         when(contaCorrenteRepository.findByTipoTitular(
                 TipoTitularConta.EMPRESA))
                 .thenReturn(List.of(contaEmpresa, contaEmpresa));
@@ -205,7 +197,6 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveRetornarTrueQuandoExisteContaEmpresa() {
-
         when(contaCorrenteRepository.findByTipoTitular(
                 TipoTitularConta.EMPRESA))
                 .thenReturn(List.of(contaEmpresa));
@@ -215,7 +206,6 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveRetornarFalseQuandoNaoExisteContaEmpresa() {
-
         when(contaCorrenteRepository.findByTipoTitular(
                 TipoTitularConta.EMPRESA))
                 .thenReturn(List.of());
@@ -225,7 +215,6 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveTransferirComSucesso() {
-
         contaCorrenteService.transferir(
                 contaCliente,
                 contaEmpresa,
@@ -249,8 +238,31 @@ class ContaCorrenteServiceTest {
     }
 
     @Test
-    void deveLancarExcecaoQuandoContaOrigemForNula() {
+    void deveTransferirValorPequenoComSucesso() {
+        contaCorrenteService.transferir(
+                contaCliente,
+                contaEmpresa,
+                new BigDecimal("0.01")
+        );
 
+        assertEquals(
+                0,
+                new BigDecimal("999.99")
+                        .compareTo(contaCliente.getSaldo())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("5000.01")
+                        .compareTo(contaEmpresa.getSaldo())
+        );
+
+        verify(contaCorrenteRepository).save(contaCliente);
+        verify(contaCorrenteRepository).save(contaEmpresa);
+    }
+
+    @Test
+    void deveLancarExcecaoQuandoContaOrigemForNula() {
         RegraNegocioException exception = assertThrows(
                 RegraNegocioException.class,
                 () -> contaCorrenteService.transferir(
@@ -271,7 +283,6 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveLancarExcecaoQuandoContaDestinoForNula() {
-
         RegraNegocioException exception = assertThrows(
                 RegraNegocioException.class,
                 () -> contaCorrenteService.transferir(
@@ -291,8 +302,67 @@ class ContaCorrenteServiceTest {
     }
 
     @Test
-    void deveLancarExcecaoQuandoSaldoForInsuficiente() {
+    void deveLancarExcecaoQuandoValorForNulo() {
+        RegraNegocioException exception = assertThrows(
+                RegraNegocioException.class,
+                () -> contaCorrenteService.transferir(
+                        contaCliente,
+                        contaEmpresa,
+                        null
+                )
+        );
 
+        assertEquals(
+                "Valor deve ser maior que zero.",
+                exception.getMessage()
+        );
+
+        verify(contaCorrenteRepository, never())
+                .save(any());
+    }
+
+    @Test
+    void deveLancarExcecaoQuandoValorForZero() {
+        RegraNegocioException exception = assertThrows(
+                RegraNegocioException.class,
+                () -> contaCorrenteService.transferir(
+                        contaCliente,
+                        contaEmpresa,
+                        BigDecimal.ZERO
+                )
+        );
+
+        assertEquals(
+                "Valor deve ser maior que zero.",
+                exception.getMessage()
+        );
+
+        verify(contaCorrenteRepository, never())
+                .save(any());
+    }
+
+    @Test
+    void deveLancarExcecaoQuandoValorForNegativo() {
+        RegraNegocioException exception = assertThrows(
+                RegraNegocioException.class,
+                () -> contaCorrenteService.transferir(
+                        contaCliente,
+                        contaEmpresa,
+                        new BigDecimal("-1.00")
+                )
+        );
+
+        assertEquals(
+                "Valor deve ser maior que zero.",
+                exception.getMessage()
+        );
+
+        verify(contaCorrenteRepository, never())
+                .save(any());
+    }
+
+    @Test
+    void deveLancarExcecaoQuandoSaldoForInsuficiente() {
         RegraNegocioException exception = assertThrows(
                 RegraNegocioException.class,
                 () -> contaCorrenteService.transferir(
@@ -311,25 +381,8 @@ class ContaCorrenteServiceTest {
                 .save(any());
     }
 
-        @Test
-        void deveLancarExcecaoAoTransferirComValorNulo() {
-                RegraNegocioException exception = assertThrows(
-                                RegraNegocioException.class,
-                                () -> contaCorrenteService.transferir(
-                                                contaCliente,
-                                                contaEmpresa,
-                                                null
-                                )
-                );
-
-                assertEquals("Valor deve ser maior que zero.", exception.getMessage());
-
-                verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
-        }
-
     @Test
     void deveSalvarConta() {
-
         when(contaCorrenteRepository.save(contaCliente))
                 .thenReturn(contaCliente);
 
