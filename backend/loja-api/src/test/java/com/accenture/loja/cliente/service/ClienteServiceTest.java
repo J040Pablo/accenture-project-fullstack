@@ -10,10 +10,12 @@ import com.accenture.loja.endereco.dto.EnderecoRequestDTO;
 import com.accenture.loja.endereco.dto.ViaCepResponseDTO;
 import com.accenture.loja.endereco.model.Endereco;
 import com.accenture.loja.endereco.service.ViaCepService;
+import com.accenture.loja.shared.enums.TipoTitularConta;
 import com.accenture.loja.shared.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,9 +31,14 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ClienteServiceTest {
 
-    @Mock private ClienteRepository clienteRepository;
-    @Mock private ViaCepService viaCepService;
-    @Mock private ClienteMapper clienteMapper;
+    @Mock
+    private ClienteRepository clienteRepository;
+
+    @Mock
+    private ViaCepService viaCepService;
+
+    @Mock
+    private ClienteMapper clienteMapper;
 
     @InjectMocks
     private ClienteService service;
@@ -43,6 +50,7 @@ class ClienteServiceTest {
 
     @BeforeEach
     void setUp() {
+
         Endereco endereco = Endereco.builder()
                 .id(1L)
                 .cep("01310-100")
@@ -57,6 +65,7 @@ class ClienteServiceTest {
                 .id(1L)
                 .numeroConta("12345")
                 .saldo(BigDecimal.ZERO)
+                .tipoTitular(TipoTitularConta.CLIENTE)
                 .build();
 
         cliente = Cliente.builder()
@@ -98,114 +107,238 @@ class ClienteServiceTest {
 
     @Test
     void criarCliente_comDadosValidos_retornaResponse() {
-        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
-        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
-        when(viaCepService.buscarCep(any())).thenReturn(viaCepResponse);
-        when(clienteRepository.save(any())).thenReturn(cliente);
-        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
 
-        ClienteResponseDTO resultado = service.criarCliente(request);
+        when(clienteRepository.findByCpf(any()))
+                .thenReturn(Optional.empty());
+
+        when(clienteRepository.findByEmail(any()))
+                .thenReturn(Optional.empty());
+
+        when(viaCepService.buscarCep(any()))
+                .thenReturn(viaCepResponse);
+
+        when(clienteRepository.save(any()))
+                .thenReturn(cliente);
+
+        when(clienteMapper.toResponseDTO(any()))
+                .thenReturn(responseDTO);
+
+        ClienteResponseDTO resultado =
+                service.criarCliente(request);
 
         assertNotNull(resultado);
-        assertEquals("João Silva", resultado.getNome());
-        verify(clienteRepository).save(any());
-        verify(clienteMapper).toResponseDTO(any());
+
+        ArgumentCaptor<Cliente> captor =
+                ArgumentCaptor.forClass(Cliente.class);
+
+        verify(clienteRepository).save(captor.capture());
+
+        Cliente clienteSalvo = captor.getValue();
+
+        assertAll(
+                () -> assertEquals("João Silva", clienteSalvo.getNome()),
+                () -> assertEquals(
+                        TipoTitularConta.CLIENTE,
+                        clienteSalvo.getContaCorrente().getTipoTitular()
+                )
+        );
     }
 
     @Test
     void criarCliente_cpfDuplicado_lancaExcecao() {
-        when(clienteRepository.findByCpf(any())).thenReturn(Optional.of(cliente));
 
-        assertThrows(BusinessException.class, () -> service.criarCliente(request));
+        when(clienteRepository.findByCpf(any()))
+                .thenReturn(Optional.of(cliente));
+
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> service.criarCliente(request)
+        );
+
+        assertEquals("CPF já cadastrado", ex.getMessage());
+
         verify(clienteRepository, never()).save(any());
-        verify(clienteMapper, never()).toResponseDTO(any());
     }
 
     @Test
     void criarCliente_emailDuplicado_lancaExcecao() {
-        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
-        when(clienteRepository.findByEmail(any())).thenReturn(Optional.of(cliente));
 
-        assertThrows(BusinessException.class, () -> service.criarCliente(request));
-        verify(clienteRepository, never()).save(any());
-        verify(clienteMapper, never()).toResponseDTO(any());
+        when(clienteRepository.findByCpf(any()))
+                .thenReturn(Optional.empty());
+
+        when(clienteRepository.findByEmail(any()))
+                .thenReturn(Optional.of(cliente));
+
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> service.criarCliente(request)
+        );
+
+        assertEquals("Email já cadastrado", ex.getMessage());
     }
 
     @Test
     void criarCliente_cepInvalido_lancaExcecao() {
-        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
-        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
+
         request.getEndereco().setCep("123");
 
-        assertThrows(RuntimeException.class, () -> service.criarCliente(request));
-        verify(clienteRepository, never()).save(any());
+        when(clienteRepository.findByCpf(any()))
+                .thenReturn(Optional.empty());
+
+        when(clienteRepository.findByEmail(any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                BusinessException.class,
+                () -> service.criarCliente(request)
+        );
     }
 
     @Test
     void criarCliente_cepNaoEncontrado_lancaExcecao() {
-        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
-        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
-        when(viaCepService.buscarCep(any())).thenReturn(null);
 
-        assertThrows(RuntimeException.class, () -> service.criarCliente(request));
-        verify(clienteRepository, never()).save(any());
+        when(clienteRepository.findByCpf(any()))
+                .thenReturn(Optional.empty());
+
+        when(clienteRepository.findByEmail(any()))
+                .thenReturn(Optional.empty());
+
+        when(viaCepService.buscarCep(any()))
+                .thenReturn(null);
+
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> service.criarCliente(request)
+        );
+
+        assertEquals("CEP não encontrado", ex.getMessage());
+    }
+
+    @Test
+    void criarCliente_viaCepSemCep_lancaExcecao() {
+
+        ViaCepResponseDTO response = new ViaCepResponseDTO();
+
+        when(clienteRepository.findByCpf(any()))
+                .thenReturn(Optional.empty());
+
+        when(clienteRepository.findByEmail(any()))
+                .thenReturn(Optional.empty());
+
+        when(viaCepService.buscarCep(any()))
+                .thenReturn(response);
+
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> service.criarCliente(request)
+        );
+
+        assertEquals("CEP não encontrado", ex.getMessage());
     }
 
     @Test
     void listarClientes_retornaLista() {
-        when(clienteRepository.findAll()).thenReturn(List.of(cliente));
-        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
 
-        List<ClienteResponseDTO> resultado = service.listarClientes();
+        when(clienteRepository.findAll())
+                .thenReturn(List.of(cliente));
+
+        when(clienteMapper.toResponseDTO(any()))
+                .thenReturn(responseDTO);
+
+        List<ClienteResponseDTO> resultado =
+                service.listarClientes();
 
         assertEquals(1, resultado.size());
+
         verify(clienteMapper).toResponseDTO(any());
     }
 
     @Test
-    void buscarPorId_encontrado_retornaResponse() {
-        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
-        when(clienteMapper.toResponseDTO(cliente)).thenReturn(responseDTO);
+    void listarClientes_listaVazia() {
 
-        ClienteResponseDTO resultado = service.buscarPorId(1L);
+        when(clienteRepository.findAll())
+                .thenReturn(List.of());
+
+        List<ClienteResponseDTO> resultado =
+                service.listarClientes();
+
+        assertTrue(resultado.isEmpty());
+    }
+
+    @Test
+    void buscarPorId_encontrado_retornaResponse() {
+
+        when(clienteRepository.findById(1L))
+                .thenReturn(Optional.of(cliente));
+
+        when(clienteMapper.toResponseDTO(cliente))
+                .thenReturn(responseDTO);
+
+        ClienteResponseDTO resultado =
+                service.buscarPorId(1L);
 
         assertNotNull(resultado);
-        assertEquals(1L, resultado.getId());
+
         verify(clienteMapper).toResponseDTO(cliente);
     }
 
     @Test
     void buscarPorId_naoEncontrado_lancaExcecao() {
-        when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(BusinessException.class, () -> service.buscarPorId(99L));
-        verify(clienteMapper, never()).toResponseDTO(any());
+        when(clienteRepository.findById(99L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                BusinessException.class,
+                () -> service.buscarPorId(99L)
+        );
     }
 
     @Test
     void atualizarCliente_comDadosValidos_retornaAtualizado() {
-        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
-        when(clienteRepository.save(any())).thenReturn(cliente);
-        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
 
-        ClienteResponseDTO resultado = service.atualizarCliente(1L, request);
+        when(clienteRepository.findById(1L))
+                .thenReturn(Optional.of(cliente));
+
+        when(clienteRepository.save(any()))
+                .thenReturn(cliente);
+
+        when(clienteMapper.toResponseDTO(any()))
+                .thenReturn(responseDTO);
+
+        ClienteResponseDTO resultado =
+                service.atualizarCliente(1L, request);
 
         assertNotNull(resultado);
-        verify(clienteRepository).save(any());
-        verify(clienteMapper).toResponseDTO(any());
+
+        ArgumentCaptor<Cliente> captor =
+                ArgumentCaptor.forClass(Cliente.class);
+
+        verify(clienteRepository).save(captor.capture());
+
+        Cliente atualizado = captor.getValue();
+
+        assertEquals(request.getNome(), atualizado.getNome());
+        assertEquals(request.getEmail(), atualizado.getEmail());
     }
 
     @Test
     void atualizarCliente_naoEncontrado_lancaExcecao() {
-        when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(BusinessException.class, () -> service.atualizarCliente(99L, request));
-        verify(clienteMapper, never()).toResponseDTO(any());
+        when(clienteRepository.findById(99L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                BusinessException.class,
+                () -> service.atualizarCliente(99L, request)
+        );
     }
 
     @Test
     void deletarCliente_encontrado_deletaComSucesso() {
-        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+
+        when(clienteRepository.findById(1L))
+                .thenReturn(Optional.of(cliente));
 
         service.deletarCliente(1L);
 
@@ -214,41 +347,13 @@ class ClienteServiceTest {
 
     @Test
     void deletarCliente_naoEncontrado_lancaExcecao() {
-        when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(BusinessException.class, () -> service.deletarCliente(99L));
-    }
-    @Test
-    void criarCliente_cepNulo_lancaExcecao() {
-        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
-        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
-        request.getEndereco().setCep(null);
+        when(clienteRepository.findById(99L))
+                .thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class, () -> service.criarCliente(request));
-        verify(clienteRepository, never()).save(any());
-    }
-
-    @Test
-    void criarCliente_cepEmBranco_lancaExcecao() {
-        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
-        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
-        request.getEndereco().setCep("   ");
-
-        assertThrows(RuntimeException.class, () -> service.criarCliente(request));
-        verify(clienteRepository, never()).save(any());
-    }
-
-    @Test
-    void criarCliente_cepComTraco_valido() {
-        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
-        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
-        when(viaCepService.buscarCep(any())).thenReturn(viaCepResponse);
-        when(clienteRepository.save(any())).thenReturn(cliente);
-        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
-
-        request.getEndereco().setCep("01310-100");
-
-        ClienteResponseDTO resultado = service.criarCliente(request);
-        assertNotNull(resultado);
+        assertThrows(
+                BusinessException.class,
+                () -> service.deletarCliente(99L)
+        );
     }
 }

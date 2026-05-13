@@ -2,6 +2,7 @@ package com.accenture.loja.conta.service;
 
 import com.accenture.loja.conta.dto.ContaCorrenteResponseDTO;
 import com.accenture.loja.conta.model.ContaCorrente;
+import com.accenture.loja.conta.mapper.ContaCorrenteMapper;
 import com.accenture.loja.conta.repository.ContaCorrenteRepository;
 import com.accenture.loja.shared.enums.TipoTitularConta;
 import com.accenture.loja.shared.exception.BusinessException;
@@ -18,11 +19,12 @@ import java.util.List;
 public class ContaCorrenteService {
 
     private final ContaCorrenteRepository contaCorrenteRepository;
+    private final ContaCorrenteMapper contaCorrenteMapper;
 
     public List<ContaCorrenteResponseDTO> listarContas() {
         return contaCorrenteRepository.findAll()
                 .stream()
-                .map(this::converterParaResponse)
+                .map(contaCorrenteMapper::toResponseDTO)
                 .toList();
     }
 
@@ -30,7 +32,7 @@ public class ContaCorrenteService {
         ContaCorrente conta = contaCorrenteRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Conta não encontrada"));
 
-        return converterParaResponse(conta);
+        return contaCorrenteMapper.toResponseDTO(conta);
     }
 
     public ContaCorrente buscarContaEmpresa() {
@@ -75,12 +77,5 @@ public class ContaCorrenteService {
         return contaCorrenteRepository.save(conta);
     }
 
-    private ContaCorrenteResponseDTO converterParaResponse(ContaCorrente conta) {
-        return ContaCorrenteResponseDTO.builder()
-                .id(conta.getId())
-                .numeroConta(conta.getNumeroConta())
-                .saldo(conta.getSaldo())
-                .tipoTitular(conta.getTipoTitular())
-                .build();
-    }
+   
 }
