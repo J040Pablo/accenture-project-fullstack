@@ -288,4 +288,133 @@ class PedidoServiceTest {
         assertEquals(StatusPedido.CANCELADO, resultado.getStatus());
         verify(contaCorrenteService).transferir(any(), any(), any());
     }
+
+    @Test
+    void criarPedido_quantidadeNull_lancaExcecao() {
+        ItemPedidoRequestDTO itemDto = new ItemPedidoRequestDTO();
+        itemDto.setProdutoId(1L);
+        itemDto.setQuantidade(null);
+
+        CriarPedidoRequestDTO request = new CriarPedidoRequestDTO();
+        request.setClienteId(1L);
+        request.setItens(List.of(itemDto));
+
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+
+        assertThrows(RegraNegocioException.class,
+                () -> service.criarPedido(request));
+    }
+
+    @Test
+    void criarPedido_quantidadeZero_lancaExcecao() {
+        ItemPedidoRequestDTO itemDto = new ItemPedidoRequestDTO();
+        itemDto.setProdutoId(1L);
+        itemDto.setQuantidade(0);
+
+        CriarPedidoRequestDTO request = new CriarPedidoRequestDTO();
+        request.setClienteId(1L);
+        request.setItens(List.of(itemDto));
+
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+
+        assertThrows(RegraNegocioException.class,
+                () -> service.criarPedido(request));
+    }
+
+    @Test
+    void criarPedido_produtoNaoEncontrado_lancaExcecao() {
+        ItemPedidoRequestDTO itemDto = new ItemPedidoRequestDTO();
+        itemDto.setProdutoId(99L);
+        itemDto.setQuantidade(1);
+
+        CriarPedidoRequestDTO request = new CriarPedidoRequestDTO();
+        request.setClienteId(1L);
+        request.setItens(List.of(itemDto));
+
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+        when(produtoRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(RegraNegocioException.class,
+                () -> service.criarPedido(request));
+    }
+
+    @Test
+    void criarPedido_descontoMaiorQueTotal_defineZero() {
+        ItemPedidoRequestDTO itemDto = new ItemPedidoRequestDTO();
+        itemDto.setProdutoId(1L);
+        itemDto.setQuantidade(1);
+
+        CriarPedidoRequestDTO request = new CriarPedidoRequestDTO();
+        request.setClienteId(1L);
+        request.setDesconto(new BigDecimal("99999"));
+        request.setItens(List.of(itemDto));
+
+        Pedido pedidoSalvo = Pedido.builder()
+                .totalFinal(BigDecimal.ZERO)
+                .build();
+
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
+        when(pedidoRepository.save(any())).thenReturn(pedidoSalvo);
+
+        Pedido resultado = service.criarPedido(request);
+
+        assertEquals(BigDecimal.ZERO, resultado.getTotalFinal());
+    }
+
+    @Test
+    void reservarPedido_produtoNull_lancaExcecao() {
+        ItemPedido item = new ItemPedido();
+        item.setProduto(null);
+        item.setQuantidade(1);
+
+        pedido.getItens().add(item);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        assertThrows(RegraNegocioException.class,
+                () -> service.reservarPedido(1L));
+    }
+
+    @Test
+    void reservarPedido_produtoInativo_lancaExcecao() {
+        produto.setAtivo(false);
+
+        ItemPedido item = new ItemPedido();
+        item.setProduto(produto);
+        item.setQuantidade(1);
+
+        pedido.getItens().add(item);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        assertThrows(RegraNegocioException.class,
+                () -> service.reservarPedido(1L));
+    }
+
+    @Test
+    void reservarPedido_estoqueInsuficiente_lancaExcecao() {
+        produto.setEstoque(0);
+
+        ItemPedido item = new ItemPedido();
+        item.setProduto(produto);
+        item.setQuantidade(5);
+
+        pedido.getItens().add(item);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        assertThrows(RegraNegocioException.class,
+                () -> service.reservarPedido(1L));
+    }
+
+    @Test
+    void cancelarPedido_statusInvalido_lancaExcecao() {
+        pedido.setStatus(StatusPedido.CANCELADO);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        assertThrows(RegraNegocioException.class,
+                () -> service.cancelarPedido(1L, "teste"));
+    }
 }
