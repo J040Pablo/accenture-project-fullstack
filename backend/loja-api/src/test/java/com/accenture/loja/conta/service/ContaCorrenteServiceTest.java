@@ -309,6 +309,22 @@ class ContaCorrenteServiceTest {
         verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
     }
 
+        @Test
+        void deveLancarExcecaoAoTransferirComValorNulo() {
+                RegraNegocioException exception = assertThrows(
+                                RegraNegocioException.class,
+                                () -> contaCorrenteService.transferir(
+                                                contaCliente,
+                                                contaEmpresa,
+                                                null
+                                )
+                );
+
+                assertEquals("Valor deve ser maior que zero.", exception.getMessage());
+
+                verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
+        }
+
     @Test
     void deveSalvarConta() {
         when(contaCorrenteRepository.save(any(ContaCorrente.class)))

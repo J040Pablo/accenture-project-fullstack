@@ -4,8 +4,9 @@ import com.accenture.loja.conta.dto.ContaCorrenteResponseDTO;
 import com.accenture.loja.conta.model.ContaCorrente;
 import com.accenture.loja.conta.repository.ContaCorrenteRepository;
 import com.accenture.loja.shared.enums.TipoTitularConta;
-import com.accenture.loja.shared.exception.BusinessException;
 import com.accenture.loja.shared.exception.RegraNegocioException;
+import com.accenture.loja.shared.exception.BusinessException;
+import com.accenture.loja.conta.mapper.ContaCorrenteMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,10 +28,10 @@ public class ContaCorrenteService {
     }
 
     public ContaCorrenteResponseDTO buscarPorId(Long id) {
-        ContaCorrente conta = contaCorrenteRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("Conta não encontrada"));
+         ContaCorrente conta = contaCorrenteRepository.findById(id)
+             .orElseThrow(() -> new BusinessException("Conta não encontrada"));
 
-        return converterParaResponse(conta);
+        return ContaCorrenteMapper.toResponseDTO(conta);
     }
 
     public ContaCorrente buscarContaEmpresa() {
@@ -64,6 +65,10 @@ public class ContaCorrenteService {
             throw new RegraNegocioException("Conta de destino não encontrada.");
         }
 
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RegraNegocioException("Valor deve ser maior que zero.");
+        }
+
         origem.debitar(valor);
         destino.creditar(valor);
 
@@ -76,11 +81,6 @@ public class ContaCorrenteService {
     }
 
     private ContaCorrenteResponseDTO converterParaResponse(ContaCorrente conta) {
-        return ContaCorrenteResponseDTO.builder()
-                .id(conta.getId())
-                .numeroConta(conta.getNumeroConta())
-                .saldo(conta.getSaldo())
-                .tipoTitular(conta.getTipoTitular())
-                .build();
+        return ContaCorrenteMapper.toResponseDTO(conta);
     }
 }

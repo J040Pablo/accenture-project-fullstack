@@ -335,4 +335,67 @@ class MovimentacaoContaMapperTest {
         assertNotEquals(response1.id(), response2.id());
         assertNotEquals(response1.tipoTitular(), response2.tipoTitular());
     }
+
+        @Test
+        void testMapearMovimentacaoNula() {
+                MovimentacaoContaResponse response = mapper.toResponse(null);
+
+                assertNull(response);
+        }
+
+        @Test
+        void testMapearMovimentacaoComContaNula() {
+                LocalDateTime agora = LocalDateTime.now();
+
+                MovimentacaoConta mov = MovimentacaoConta.builder()
+                                .id(20L)
+                                .conta(null)
+                                .tipo(TipoMovimentacao.DEPOSITO)
+                                .valor(new BigDecimal("50.00"))
+                                .dataHora(agora)
+                                .descricao("Depósito sem conta vinculada")
+                                .pedido(pedido)
+                                .build();
+
+                MovimentacaoContaResponse response = mapper.toResponse(mov);
+
+                assertNotNull(response);
+                assertEquals(20L, response.id());
+                assertNull(response.contaId());
+                assertNull(response.numeroConta());
+                assertNull(response.tipoTitular());
+                assertEquals(TipoMovimentacao.DEPOSITO, response.tipo());
+                assertEquals(new BigDecimal("50.00"), response.valor());
+                assertEquals(agora, response.dataHora());
+                assertEquals("Depósito sem conta vinculada", response.descricao());
+                assertEquals(1L, response.pedidoId());
+        }
+
+        @Test
+        void testMapearMovimentacaoComContaEPedidoNulos() {
+                LocalDateTime agora = LocalDateTime.now();
+
+                MovimentacaoConta mov = MovimentacaoConta.builder()
+                                .id(21L)
+                                .conta(null)
+                                .tipo(TipoMovimentacao.SAQUE)
+                                .valor(new BigDecimal("20.00"))
+                                .dataHora(agora)
+                                .descricao("Saque sem vínculo")
+                                .pedido(null)
+                                .build();
+
+                MovimentacaoContaResponse response = mapper.toResponse(mov);
+
+                assertNotNull(response);
+                assertEquals(21L, response.id());
+                assertNull(response.contaId());
+                assertNull(response.numeroConta());
+                assertNull(response.tipoTitular());
+                assertEquals(TipoMovimentacao.SAQUE, response.tipo());
+                assertEquals(new BigDecimal("20.00"), response.valor());
+                assertEquals(agora, response.dataHora());
+                assertEquals("Saque sem vínculo", response.descricao());
+                assertNull(response.pedidoId());
+        }
 }
