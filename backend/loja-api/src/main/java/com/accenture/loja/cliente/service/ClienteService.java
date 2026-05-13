@@ -4,14 +4,12 @@ import com.accenture.loja.cliente.dto.ClienteRequestDTO;
 import com.accenture.loja.cliente.dto.ClienteResponseDTO;
 import com.accenture.loja.cliente.model.Cliente;
 import com.accenture.loja.cliente.repository.ClienteRepository;
-import com.accenture.loja.conta.dto.ContaCorrenteResponseDTO;
+import com.accenture.loja.cliente.mapper.ClienteMapper;
 import com.accenture.loja.conta.model.ContaCorrente;
-import com.accenture.loja.endereco.dto.EnderecoResponseDTO;
 import com.accenture.loja.endereco.dto.ViaCepResponseDTO;
 import com.accenture.loja.endereco.model.Endereco;
 import com.accenture.loja.endereco.service.ViaCepService;
 import com.accenture.loja.shared.exception.BusinessException;
-import com.accenture.loja.shared.exception.ResourceNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,9 +25,9 @@ public class ClienteService {
 
     private final ClienteRepository clienteRepository;
     private final ViaCepService viaCepService;
+    private final ClienteMapper clienteMapper;
 
     public ClienteResponseDTO criarCliente(ClienteRequestDTO dto) {
-    	//validarDadosCliente(dto);
         validarCpf(dto.getCpf());
         validarEmail(dto.getEmail());
 
@@ -40,7 +38,7 @@ public class ClienteService {
         ViaCepResponseDTO viaCep = viaCepService.buscarCep(cep);
 
         if (viaCep == null || viaCep.getCep() == null) {
-            throw new RuntimeException("CEP não encontrado");
+            throw new BusinessException("CEP não encontrado");
         }
 
         Endereco endereco = Endereco.builder()
@@ -69,19 +67,19 @@ public class ClienteService {
 
         Cliente clienteSalvo = clienteRepository.save(cliente);
 
-        return converterParaResponse(clienteSalvo);
+        return clienteMapper.toResponseDTO(clienteSalvo);
     }
     
     private void validarCep(String cep) {
 
         if (cep == null || cep.isBlank()) {
-            throw new RuntimeException("CEP é obrigatório");
+            throw new BusinessException("CEP é obrigatório");
         }
 
         cep = cep.replace("-", "");
 
         if (!cep.matches("\\d{8}")) {
-            throw new RuntimeException("CEP inválido");
+            throw new BusinessException("CEP inválido");
         }
     }
 
@@ -89,7 +87,7 @@ public class ClienteService {
 
         return clienteRepository.findAll()
                 .stream()
-                .map(this::converterParaResponse)
+                .map(clienteMapper::toResponseDTO)
                 .toList();
     }
 
@@ -98,7 +96,7 @@ public class ClienteService {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Cliente não encontrado"));
 
-        return converterParaResponse(cliente);
+        return  clienteMapper.toResponseDTO(cliente);
     }
 
     public ClienteResponseDTO atualizarCliente(Long id, ClienteRequestDTO dto) {
@@ -111,7 +109,7 @@ public class ClienteService {
 
         Cliente atualizado = clienteRepository.save(cliente);
 
-        return converterParaResponse(atualizado);
+        return  clienteMapper.toResponseDTO(atualizado);
     }
 
     public void deletarCliente(Long id) {
@@ -145,68 +143,6 @@ public class ClienteService {
         return String.valueOf(10000 + random.nextInt(90000));
     }
 
-    private ClienteResponseDTO converterParaResponse(Cliente cliente) {
-
-        return ClienteResponseDTO.builder()
-                .id(cliente.getId())
-                .nome(cliente.getNome())
-                .cpf(cliente.getCpf())
-                .email(cliente.getEmail())
-                .endereco(
-                        EnderecoResponseDTO.builder()
-                                .id(cliente.getEndereco().getId())
-                                .cep(cliente.getEndereco().getCep())
-                                .rua(cliente.getEndereco().getRua())
-                                .numero(cliente.getEndereco().getNumero())
-                                .bairro(cliente.getEndereco().getBairro())
-                                .cidade(cliente.getEndereco().getCidade())
-                                .uf(cliente.getEndereco().getUf())
-                                .build()
-                )
-                .contaCorrente(
-                        ContaCorrenteResponseDTO.builder()
-                                .id(cliente.getContaCorrente().getId())
-                                .numeroConta(cliente.getContaCorrente().getNumeroConta())
-                                .saldo(cliente.getContaCorrente().getSaldo()).tipoTitular(cliente.getContaCorrente().getTipoTitular())
-                                .build()
-                )
-                .build();
-    }
-    
-    private void validarDadosCliente(ClienteRequestDTO dto) {
-
-        if (dto == null) {
-            throw new ResourceNotFoundException("Dados do cliente são obrigatórios");
-        }
-
-        if (dto.getNome() == null || dto.getNome().isBlank()) {
-        	throw new ResourceNotFoundException("Nome é obrigatório");
-        }
-
-        if (dto.getCpf() == null || dto.getCpf().isBlank()) {
-        	throw new ResourceNotFoundException("CPF é obrigatório");
-        }
-
-        if (dto.getEmail() == null || dto.getEmail().isBlank()) {
-        	throw new ResourceNotFoundException("Email é obrigatório");
-        }
-
-        if (dto.getEndereco() == null) {
-        	throw new ResourceNotFoundException("Endereço é obrigatório");
-        }
-
-        if (dto.getEndereco().getCep() == null
-                || dto.getEndereco().getCep().isBlank()) {
-
-        	throw new ResourceNotFoundException("CEP é obrigatório");
-        }
-
-        if (dto.getEndereco().getNumero() == null
-                || dto.getEndereco().getNumero().isBlank()) {
-
-        	throw new ResourceNotFoundException(
-                    "Número do endereço é obrigatório"
-            );
-        }
-    }
+     
+   
 }
