@@ -1,6 +1,5 @@
 package com.accenture.loja.empresa.service;
 
-import com.accenture.loja.conta.model.ContaCorrente;
 import com.accenture.loja.conta.service.ContaCorrenteService;
 import com.accenture.loja.empresa.dto.EmpresaRequestDTO;
 import com.accenture.loja.empresa.dto.EmpresaResponseDTO;
@@ -33,6 +32,9 @@ class EmpresaServiceTest {
     @Mock
     private ContaCorrenteService contaCorrenteService;
 
+    @Mock
+    private com.accenture.loja.empresa.mapper.EmpresaMapper empresaMapper;
+
     @InjectMocks
     private EmpresaService empresaService;
 
@@ -56,6 +58,10 @@ class EmpresaServiceTest {
         Empresa toSave = new Empresa(request.razaoSocial(), request.nomeFantasia(), request.cnpj(), request.email(), request.telefone());
         toSave.setId(10L);
         when(empresaRepository.save(any(Empresa.class))).thenReturn(toSave);
+        when(empresaMapper.toResponse(any(Empresa.class))).thenAnswer(invocation -> {
+            Empresa e = invocation.getArgument(0);
+            return new EmpresaResponseDTO(e.getId(), e.getRazaoSocial(), e.getNomeFantasia(), e.getCnpj(), e.getEmail(), e.getTelefone(), e.getAtivo());
+        });
 
         EmpresaResponseDTO response = empresaService.cadastrar(request);
 
@@ -99,7 +105,7 @@ class EmpresaServiceTest {
 
         when(empresaRepository.existsByCnpj(request.cnpj())).thenReturn(true);
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> empresaService.cadastrar(request));
+        RegraNegocioException ex = assertThrows(RegraNegocioException.class, () -> empresaService.cadastrar(request));
         assertEquals("CNPJ já cadastrado", ex.getMessage());
 
         verify(empresaRepository).existsByCnpj(request.cnpj());
@@ -107,8 +113,24 @@ class EmpresaServiceTest {
     }
 
     @Test
+    void deveLancarQuandoCadastrarComRequestNulo() {
+        RegraNegocioException ex = assertThrows(RegraNegocioException.class, () -> empresaService.cadastrar(null));
+
+        assertEquals("Dados da empresa são obrigatórios.", ex.getMessage());
+        verify(empresaRepository, never()).existsByCnpj(any());
+        verify(contaCorrenteService, never()).existeContaEmpresa();
+        verify(empresaRepository, never()).save(any());
+    }
+
+    @Test
     void deveListarEmpresas() {
         when(empresaRepository.findAll()).thenReturn(List.of(empresaAtiva, empresaInativa));
+        when(empresaMapper.toResponse(empresaAtiva)).thenReturn(
+            new EmpresaResponseDTO(empresaAtiva.getId(), empresaAtiva.getRazaoSocial(), empresaAtiva.getNomeFantasia(), empresaAtiva.getCnpj(), empresaAtiva.getEmail(), empresaAtiva.getTelefone(), empresaAtiva.getAtivo())
+        );
+        when(empresaMapper.toResponse(empresaInativa)).thenReturn(
+            new EmpresaResponseDTO(empresaInativa.getId(), empresaInativa.getRazaoSocial(), empresaInativa.getNomeFantasia(), empresaInativa.getCnpj(), empresaInativa.getEmail(), empresaInativa.getTelefone(), empresaInativa.getAtivo())
+        );
 
         List<EmpresaResponseDTO> lista = empresaService.listar();
 
@@ -120,8 +142,22 @@ class EmpresaServiceTest {
     }
 
     @Test
+    void deveListarEmpresasVazio() {
+        when(empresaRepository.findAll()).thenReturn(List.of());
+
+        List<EmpresaResponseDTO> lista = empresaService.listar();
+
+        assertNotNull(lista);
+        assertTrue(lista.isEmpty());
+        verify(empresaRepository).findAll();
+    }
+
+    @Test
     void deveBuscarPorIdExistente() {
         when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresaAtiva));
+        when(empresaMapper.toResponse(empresaAtiva)).thenReturn(
+            new EmpresaResponseDTO(empresaAtiva.getId(), empresaAtiva.getRazaoSocial(), empresaAtiva.getNomeFantasia(), empresaAtiva.getCnpj(), empresaAtiva.getEmail(), empresaAtiva.getTelefone(), empresaAtiva.getAtivo())
+        );
 
         EmpresaResponseDTO dto = empresaService.buscarPorId(1L);
 
@@ -135,7 +171,7 @@ class EmpresaServiceTest {
     void deveLancarQuandoBuscarPorIdInexistente() {
         when(empresaRepository.findById(anyLong())).thenReturn(Optional.empty());
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> empresaService.buscarPorId(99L));
+        RegraNegocioException ex = assertThrows(RegraNegocioException.class, () -> empresaService.buscarPorId(99L));
         assertEquals("Empresa não encontrada", ex.getMessage());
 
         verify(empresaRepository).findById(99L);

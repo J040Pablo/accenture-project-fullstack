@@ -1,8 +1,8 @@
 package com.accenture.loja.conta.service;
 
 import com.accenture.loja.conta.dto.ContaCorrenteResponseDTO;
-import com.accenture.loja.conta.model.ContaCorrente;
 import com.accenture.loja.conta.mapper.ContaCorrenteMapper;
+import com.accenture.loja.conta.model.ContaCorrente;
 import com.accenture.loja.conta.repository.ContaCorrenteRepository;
 import com.accenture.loja.shared.enums.TipoTitularConta;
 import com.accenture.loja.shared.exception.BusinessException;
@@ -66,6 +66,10 @@ public class ContaCorrenteService {
             throw new RegraNegocioException("Conta de destino não encontrada.");
         }
 
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RegraNegocioException("Valor deve ser maior que zero.");
+        }
+
         origem.debitar(valor);
         destino.creditar(valor);
 
@@ -76,6 +80,4 @@ public class ContaCorrenteService {
     public ContaCorrente salvar(ContaCorrente conta) {
         return contaCorrenteRepository.save(conta);
     }
-
-   
 }

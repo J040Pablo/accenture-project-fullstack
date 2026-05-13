@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 public class ContaCorrenteMapper {
 
     public ContaCorrenteResponseDTO toResponseDTO(ContaCorrente conta) {
-
         if (conta == null) {
             return null;
         }
