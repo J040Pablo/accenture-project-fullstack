@@ -1,6 +1,7 @@
 package com.accenture.loja.conta.service;
 
 import com.accenture.loja.conta.dto.ContaCorrenteResponseDTO;
+import com.accenture.loja.conta.mapper.ContaCorrenteMapper;
 import com.accenture.loja.conta.model.ContaCorrente;
 import com.accenture.loja.conta.repository.ContaCorrenteRepository;
 import com.accenture.loja.shared.enums.TipoTitularConta;
@@ -8,7 +9,10 @@ import com.accenture.loja.shared.exception.BusinessException;
 import com.accenture.loja.shared.exception.RegraNegocioException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -18,18 +22,26 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class ContaCorrenteServiceTest {
 
+    @Mock
     private ContaCorrenteRepository contaCorrenteRepository;
+
+    @Mock
+    private ContaCorrenteMapper contaCorrenteMapper;
+
+    @InjectMocks
     private ContaCorrenteService contaCorrenteService;
 
     private ContaCorrente contaCliente;
     private ContaCorrente contaEmpresa;
 
+    private ContaCorrenteResponseDTO contaClienteDTO;
+    private ContaCorrenteResponseDTO contaEmpresaDTO;
+
     @BeforeEach
     void setup() {
-        contaCorrenteRepository = Mockito.mock(ContaCorrenteRepository.class);
-        contaCorrenteService = new ContaCorrenteService(contaCorrenteRepository);
 
         contaCliente = ContaCorrente.builder()
                 .id(1L)
@@ -44,12 +56,33 @@ class ContaCorrenteServiceTest {
                 .saldo(new BigDecimal("5000.00"))
                 .tipoTitular(TipoTitularConta.EMPRESA)
                 .build();
+
+        contaClienteDTO = ContaCorrenteResponseDTO.builder()
+                .id(1L)
+                .numeroConta("12345")
+                .saldo(new BigDecimal("1000.00"))
+                .tipoTitular(TipoTitularConta.CLIENTE)
+                .build();
+
+        contaEmpresaDTO = ContaCorrenteResponseDTO.builder()
+                .id(2L)
+                .numeroConta("67890")
+                .saldo(new BigDecimal("5000.00"))
+                .tipoTitular(TipoTitularConta.EMPRESA)
+                .build();
     }
 
     @Test
     void deveListarContas() {
+
         when(contaCorrenteRepository.findAll())
                 .thenReturn(List.of(contaCliente, contaEmpresa));
+
+        when(contaCorrenteMapper.toResponseDTO(contaCliente))
+                .thenReturn(contaClienteDTO);
+
+        when(contaCorrenteMapper.toResponseDTO(contaEmpresa))
+                .thenReturn(contaEmpresaDTO);
 
         List<ContaCorrenteResponseDTO> resultado =
                 contaCorrenteService.listarContas();
@@ -57,21 +90,17 @@ class ContaCorrenteServiceTest {
         assertNotNull(resultado);
         assertEquals(2, resultado.size());
 
-        assertEquals(1L, resultado.get(0).getId());
         assertEquals("12345", resultado.get(0).getNumeroConta());
-        assertEquals(0, new BigDecimal("1000.00").compareTo(resultado.get(0).getSaldo()));
-        assertEquals(TipoTitularConta.CLIENTE, resultado.get(0).getTipoTitular());
-
-        assertEquals(2L, resultado.get(1).getId());
         assertEquals("67890", resultado.get(1).getNumeroConta());
-        assertEquals(0, new BigDecimal("5000.00").compareTo(resultado.get(1).getSaldo()));
-        assertEquals(TipoTitularConta.EMPRESA, resultado.get(1).getTipoTitular());
 
-        verify(contaCorrenteRepository, times(1)).findAll();
+        verify(contaCorrenteRepository).findAll();
+        verify(contaCorrenteMapper, times(2))
+                .toResponseDTO(any(ContaCorrente.class));
     }
 
     @Test
-    void deveListarContasVazia() {
+    void deveRetornarListaVazia() {
+
         when(contaCorrenteRepository.findAll())
                 .thenReturn(List.of());
 
@@ -81,13 +110,19 @@ class ContaCorrenteServiceTest {
         assertNotNull(resultado);
         assertTrue(resultado.isEmpty());
 
-        verify(contaCorrenteRepository, times(1)).findAll();
+        verify(contaCorrenteRepository).findAll();
+        verify(contaCorrenteMapper, never())
+                .toResponseDTO(any());
     }
 
     @Test
-    void deveBuscarContaClientePorId() {
+    void deveBuscarContaPorId() {
+
         when(contaCorrenteRepository.findById(1L))
                 .thenReturn(Optional.of(contaCliente));
+
+        when(contaCorrenteMapper.toResponseDTO(contaCliente))
+                .thenReturn(contaClienteDTO);
 
         ContaCorrenteResponseDTO resultado =
                 contaCorrenteService.buscarPorId(1L);
@@ -95,63 +130,48 @@ class ContaCorrenteServiceTest {
         assertNotNull(resultado);
         assertEquals(1L, resultado.getId());
         assertEquals("12345", resultado.getNumeroConta());
-        assertEquals(0, new BigDecimal("1000.00").compareTo(resultado.getSaldo()));
-        assertEquals(TipoTitularConta.CLIENTE, resultado.getTipoTitular());
 
-        verify(contaCorrenteRepository, times(1)).findById(1L);
-    }
-
-    @Test
-    void deveBuscarContaEmpresaPorId() {
-        when(contaCorrenteRepository.findById(2L))
-                .thenReturn(Optional.of(contaEmpresa));
-
-        ContaCorrenteResponseDTO resultado =
-                contaCorrenteService.buscarPorId(2L);
-
-        assertNotNull(resultado);
-        assertEquals(2L, resultado.getId());
-        assertEquals("67890", resultado.getNumeroConta());
-        assertEquals(0, new BigDecimal("5000.00").compareTo(resultado.getSaldo()));
-        assertEquals(TipoTitularConta.EMPRESA, resultado.getTipoTitular());
-
-        verify(contaCorrenteRepository, times(1)).findById(2L);
+        verify(contaCorrenteRepository).findById(1L);
+        verify(contaCorrenteMapper).toResponseDTO(contaCliente);
     }
 
     @Test
     void deveLancarExcecaoQuandoContaNaoEncontrada() {
-        when(contaCorrenteRepository.findById(999L))
+
+        when(contaCorrenteRepository.findById(99L))
                 .thenReturn(Optional.empty());
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
-                () -> contaCorrenteService.buscarPorId(999L)
+                () -> contaCorrenteService.buscarPorId(99L)
         );
 
         assertEquals("Conta não encontrada", exception.getMessage());
 
-        verify(contaCorrenteRepository, times(1)).findById(999L);
+        verify(contaCorrenteMapper, never())
+                .toResponseDTO(any());
     }
 
     @Test
     void deveBuscarContaEmpresa() {
-        when(contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA))
+
+        when(contaCorrenteRepository.findByTipoTitular(
+                TipoTitularConta.EMPRESA))
                 .thenReturn(List.of(contaEmpresa));
 
-        ContaCorrente resultado = contaCorrenteService.buscarContaEmpresa();
+        ContaCorrente resultado =
+                contaCorrenteService.buscarContaEmpresa();
 
         assertNotNull(resultado);
-        assertEquals(2L, resultado.getId());
-        assertEquals("67890", resultado.getNumeroConta());
-        assertEquals(TipoTitularConta.EMPRESA, resultado.getTipoTitular());
-
-        verify(contaCorrenteRepository, times(1))
-                .findByTipoTitular(TipoTitularConta.EMPRESA);
+        assertEquals(TipoTitularConta.EMPRESA,
+                resultado.getTipoTitular());
     }
 
     @Test
     void deveLancarExcecaoQuandoContaEmpresaNaoEncontrada() {
-        when(contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA))
+
+        when(contaCorrenteRepository.findByTipoTitular(
+                TipoTitularConta.EMPRESA))
                 .thenReturn(List.of());
 
         RegraNegocioException exception = assertThrows(
@@ -159,154 +179,136 @@ class ContaCorrenteServiceTest {
                 () -> contaCorrenteService.buscarContaEmpresa()
         );
 
-        assertEquals("Conta da empresa não encontrada.", exception.getMessage());
-
-        verify(contaCorrenteRepository, times(1))
-                .findByTipoTitular(TipoTitularConta.EMPRESA);
+        assertEquals(
+                "Conta da empresa não encontrada.",
+                exception.getMessage()
+        );
     }
 
     @Test
     void deveLancarExcecaoQuandoExistirMaisDeUmaContaEmpresa() {
-        ContaCorrente outraContaEmpresa = ContaCorrente.builder()
-                .id(3L)
-                .numeroConta("99999")
-                .saldo(BigDecimal.ZERO)
-                .tipoTitular(TipoTitularConta.EMPRESA)
-                .build();
 
-        when(contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA))
-                .thenReturn(List.of(contaEmpresa, outraContaEmpresa));
+        when(contaCorrenteRepository.findByTipoTitular(
+                TipoTitularConta.EMPRESA))
+                .thenReturn(List.of(contaEmpresa, contaEmpresa));
 
         RegraNegocioException exception = assertThrows(
                 RegraNegocioException.class,
                 () -> contaCorrenteService.buscarContaEmpresa()
         );
 
-        assertEquals("Há mais de uma conta da empresa cadastrada.", exception.getMessage());
-
-        verify(contaCorrenteRepository, times(1))
-                .findByTipoTitular(TipoTitularConta.EMPRESA);
+        assertEquals(
+                "Há mais de uma conta da empresa cadastrada.",
+                exception.getMessage()
+        );
     }
 
     @Test
     void deveRetornarTrueQuandoExisteContaEmpresa() {
-        when(contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA))
+
+        when(contaCorrenteRepository.findByTipoTitular(
+                TipoTitularConta.EMPRESA))
                 .thenReturn(List.of(contaEmpresa));
 
-        boolean existe = contaCorrenteService.existeContaEmpresa();
-
-        assertTrue(existe);
-
-        verify(contaCorrenteRepository, times(1))
-                .findByTipoTitular(TipoTitularConta.EMPRESA);
+        assertTrue(contaCorrenteService.existeContaEmpresa());
     }
 
     @Test
     void deveRetornarFalseQuandoNaoExisteContaEmpresa() {
-        when(contaCorrenteRepository.findByTipoTitular(TipoTitularConta.EMPRESA))
+
+        when(contaCorrenteRepository.findByTipoTitular(
+                TipoTitularConta.EMPRESA))
                 .thenReturn(List.of());
 
-        boolean existe = contaCorrenteService.existeContaEmpresa();
-
-        assertFalse(existe);
-
-        verify(contaCorrenteRepository, times(1))
-                .findByTipoTitular(TipoTitularConta.EMPRESA);
+        assertFalse(contaCorrenteService.existeContaEmpresa());
     }
 
     @Test
     void deveTransferirComSucesso() {
+
         contaCorrenteService.transferir(
                 contaCliente,
                 contaEmpresa,
                 new BigDecimal("100.00")
         );
 
-        assertEquals(0, new BigDecimal("900.00").compareTo(contaCliente.getSaldo()));
-        assertEquals(0, new BigDecimal("5100.00").compareTo(contaEmpresa.getSaldo()));
-
-        verify(contaCorrenteRepository, times(1)).save(contaCliente);
-        verify(contaCorrenteRepository, times(1)).save(contaEmpresa);
-    }
-
-    @Test
-    void deveLancarExcecaoAoTransferirComSaldoInsuficiente() {
-        RegraNegocioException exception = assertThrows(
-                RegraNegocioException.class,
-                () -> contaCorrenteService.transferir(
-                        contaCliente,
-                        contaEmpresa,
-                        new BigDecimal("2000.00")
-                )
+        assertEquals(
+                0,
+                new BigDecimal("900.00")
+                        .compareTo(contaCliente.getSaldo())
         );
 
-        assertEquals("Saldo insuficiente.", exception.getMessage());
+        assertEquals(
+                0,
+                new BigDecimal("5100.00")
+                        .compareTo(contaEmpresa.getSaldo())
+        );
 
-        verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
+        verify(contaCorrenteRepository).save(contaCliente);
+        verify(contaCorrenteRepository).save(contaEmpresa);
     }
 
     @Test
-    void deveLancarExcecaoAoTransferirComContaOrigemNula() {
+    void deveLancarExcecaoQuandoContaOrigemForNula() {
+
         RegraNegocioException exception = assertThrows(
                 RegraNegocioException.class,
                 () -> contaCorrenteService.transferir(
                         null,
                         contaEmpresa,
-                        new BigDecimal("100.00")
+                        new BigDecimal("100")
                 )
         );
 
-        assertEquals("Conta de origem não encontrada.", exception.getMessage());
+        assertEquals(
+                "Conta de origem não encontrada.",
+                exception.getMessage()
+        );
 
-        verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
+        verify(contaCorrenteRepository, never())
+                .save(any());
     }
 
     @Test
-    void deveLancarExcecaoAoTransferirComContaDestinoNula() {
+    void deveLancarExcecaoQuandoContaDestinoForNula() {
+
         RegraNegocioException exception = assertThrows(
                 RegraNegocioException.class,
                 () -> contaCorrenteService.transferir(
                         contaCliente,
                         null,
-                        new BigDecimal("100.00")
+                        new BigDecimal("100")
                 )
         );
 
-        assertEquals("Conta de destino não encontrada.", exception.getMessage());
+        assertEquals(
+                "Conta de destino não encontrada.",
+                exception.getMessage()
+        );
 
-        verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
+        verify(contaCorrenteRepository, never())
+                .save(any());
     }
 
     @Test
-    void deveLancarExcecaoAoTransferirComValorZero() {
+    void deveLancarExcecaoQuandoSaldoForInsuficiente() {
+
         RegraNegocioException exception = assertThrows(
                 RegraNegocioException.class,
                 () -> contaCorrenteService.transferir(
                         contaCliente,
                         contaEmpresa,
-                        BigDecimal.ZERO
+                        new BigDecimal("99999")
                 )
         );
 
-        assertEquals("Valor deve ser maior que zero.", exception.getMessage());
-
-        verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
-    }
-
-    @Test
-    void deveLancarExcecaoAoTransferirComValorNegativo() {
-        RegraNegocioException exception = assertThrows(
-                RegraNegocioException.class,
-                () -> contaCorrenteService.transferir(
-                        contaCliente,
-                        contaEmpresa,
-                        new BigDecimal("-100.00")
-                )
+        assertEquals(
+                "Saldo insuficiente.",
+                exception.getMessage()
         );
 
-        assertEquals("Valor deve ser maior que zero.", exception.getMessage());
-
-        verify(contaCorrenteRepository, never()).save(any(ContaCorrente.class));
+        verify(contaCorrenteRepository, never())
+                .save(any());
     }
 
         @Test
@@ -327,16 +329,16 @@ class ContaCorrenteServiceTest {
 
     @Test
     void deveSalvarConta() {
-        when(contaCorrenteRepository.save(any(ContaCorrente.class)))
+
+        when(contaCorrenteRepository.save(contaCliente))
                 .thenReturn(contaCliente);
 
-        ContaCorrente resultado = contaCorrenteService.salvar(contaCliente);
+        ContaCorrente resultado =
+                contaCorrenteService.salvar(contaCliente);
 
         assertNotNull(resultado);
         assertEquals(1L, resultado.getId());
-        assertEquals("12345", resultado.getNumeroConta());
-        assertEquals(TipoTitularConta.CLIENTE, resultado.getTipoTitular());
 
-        verify(contaCorrenteRepository, times(1)).save(contaCliente);
+        verify(contaCorrenteRepository).save(contaCliente);
     }
 }

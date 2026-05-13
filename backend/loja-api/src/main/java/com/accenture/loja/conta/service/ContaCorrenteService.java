@@ -1,12 +1,12 @@
 package com.accenture.loja.conta.service;
 
 import com.accenture.loja.conta.dto.ContaCorrenteResponseDTO;
+import com.accenture.loja.conta.mapper.ContaCorrenteMapper;
 import com.accenture.loja.conta.model.ContaCorrente;
 import com.accenture.loja.conta.repository.ContaCorrenteRepository;
 import com.accenture.loja.shared.enums.TipoTitularConta;
-import com.accenture.loja.shared.exception.RegraNegocioException;
 import com.accenture.loja.shared.exception.BusinessException;
-import com.accenture.loja.conta.mapper.ContaCorrenteMapper;
+import com.accenture.loja.shared.exception.RegraNegocioException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,19 +19,20 @@ import java.util.List;
 public class ContaCorrenteService {
 
     private final ContaCorrenteRepository contaCorrenteRepository;
+    private final ContaCorrenteMapper contaCorrenteMapper;
 
     public List<ContaCorrenteResponseDTO> listarContas() {
         return contaCorrenteRepository.findAll()
                 .stream()
-                .map(this::converterParaResponse)
+                .map(contaCorrenteMapper::toResponseDTO)
                 .toList();
     }
 
     public ContaCorrenteResponseDTO buscarPorId(Long id) {
-         ContaCorrente conta = contaCorrenteRepository.findById(id)
-             .orElseThrow(() -> new BusinessException("Conta não encontrada"));
+        ContaCorrente conta = contaCorrenteRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Conta não encontrada"));
 
-        return ContaCorrenteMapper.toResponseDTO(conta);
+        return contaCorrenteMapper.toResponseDTO(conta);
     }
 
     public ContaCorrente buscarContaEmpresa() {
@@ -78,9 +79,5 @@ public class ContaCorrenteService {
 
     public ContaCorrente salvar(ContaCorrente conta) {
         return contaCorrenteRepository.save(conta);
-    }
-
-    private ContaCorrenteResponseDTO converterParaResponse(ContaCorrente conta) {
-        return ContaCorrenteMapper.toResponseDTO(conta);
     }
 }

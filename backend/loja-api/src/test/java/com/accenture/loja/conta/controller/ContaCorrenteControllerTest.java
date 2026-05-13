@@ -3,6 +3,8 @@ package com.accenture.loja.conta.controller;
 import com.accenture.loja.conta.dto.ContaCorrenteResponseDTO;
 import com.accenture.loja.conta.service.ContaCorrenteService;
 import com.accenture.loja.shared.enums.TipoTitularConta;
+import com.accenture.loja.shared.exception.BusinessException;
+import com.accenture.loja.shared.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -15,12 +17,12 @@ import java.util.List;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class ContaCorrenteControllerTest {
 
     private MockMvc mockMvc;
+
     private ContaCorrenteService contaCorrenteService;
 
     private ContaCorrenteResponseDTO contaCliente;
@@ -28,12 +30,15 @@ class ContaCorrenteControllerTest {
 
     @BeforeEach
     void setup() {
+
         contaCorrenteService = Mockito.mock(ContaCorrenteService.class);
 
-        ContaCorrenteController controller = new ContaCorrenteController(contaCorrenteService);
+        ContaCorrenteController controller =
+                new ContaCorrenteController(contaCorrenteService);
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
         contaCliente = ContaCorrenteResponseDTO.builder()
@@ -53,6 +58,7 @@ class ContaCorrenteControllerTest {
 
     @Test
     void deveListarContas() throws Exception {
+
         when(contaCorrenteService.listarContas())
                 .thenReturn(List.of(contaCliente, contaEmpresa));
 
@@ -72,6 +78,7 @@ class ContaCorrenteControllerTest {
 
     @Test
     void deveListarContasVazia() throws Exception {
+
         when(contaCorrenteService.listarContas())
                 .thenReturn(List.of());
 
@@ -85,6 +92,7 @@ class ContaCorrenteControllerTest {
 
     @Test
     void deveBuscarContaClientePorId() throws Exception {
+
         when(contaCorrenteService.buscarPorId(1L))
                 .thenReturn(contaCliente);
 
@@ -100,6 +108,7 @@ class ContaCorrenteControllerTest {
 
     @Test
     void deveBuscarContaEmpresaPorId() throws Exception {
+
         when(contaCorrenteService.buscarPorId(2L))
                 .thenReturn(contaEmpresa);
 
@@ -111,5 +120,22 @@ class ContaCorrenteControllerTest {
                 .andExpect(jsonPath("$.tipoTitular").value("EMPRESA"));
 
         verify(contaCorrenteService).buscarPorId(2L);
+    }
+
+    @Test
+    void deveRetornarErroQuandoContaNaoEncontrada() throws Exception {
+
+        when(contaCorrenteService.buscarPorId(99L))
+                .thenThrow(new BusinessException("Conta não encontrada"));
+
+        mockMvc.perform(get("/api/contas/99"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.erro")
+                        .value("Erro de regra de negócio"))
+                .andExpect(jsonPath("$.mensagem")
+                        .value("Conta não encontrada"));
+
+        verify(contaCorrenteService).buscarPorId(99L);
     }
 }

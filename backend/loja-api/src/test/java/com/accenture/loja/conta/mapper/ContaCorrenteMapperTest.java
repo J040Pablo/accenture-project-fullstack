@@ -11,28 +11,48 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ContaCorrenteMapperTest {
 
-    @Test
-    void toResponseDTO_deveRetornarNullQuandoContaForNull() {
-        ContaCorrenteResponseDTO response = ContaCorrenteMapper.toResponseDTO(null);
+    private final ContaCorrenteMapper mapper = new ContaCorrenteMapper();
 
-        assertNull(response);
+    @Test
+    void deveRetornarNullQuandoContaForNull() {
+        ContaCorrenteResponseDTO dto = mapper.toResponseDTO(null);
+
+        assertNull(dto);
     }
 
     @Test
-    void toResponseDTO_deveMapearContaCorrenteParaResponseDTO() {
+    void deveConverterContaClienteParaDTO() {
         ContaCorrente conta = ContaCorrente.builder()
                 .id(1L)
                 .numeroConta("12345")
-                .saldo(new BigDecimal("100.00"))
+                .saldo(new BigDecimal("1000.00"))
                 .tipoTitular(TipoTitularConta.CLIENTE)
                 .build();
 
-        ContaCorrenteResponseDTO response = ContaCorrenteMapper.toResponseDTO(conta);
+        ContaCorrenteResponseDTO dto = mapper.toResponseDTO(conta);
 
-        assertNotNull(response);
-        assertEquals(1L, response.getId());
-        assertEquals("12345", response.getNumeroConta());
-        assertEquals(new BigDecimal("100.00"), response.getSaldo());
-        assertEquals(TipoTitularConta.CLIENTE, response.getTipoTitular());
+        assertNotNull(dto);
+        assertEquals(1L, dto.getId());
+        assertEquals("12345", dto.getNumeroConta());
+        assertEquals(0, new BigDecimal("1000.00").compareTo(dto.getSaldo()));
+        assertEquals(TipoTitularConta.CLIENTE, dto.getTipoTitular());
+    }
+
+    @Test
+    void deveConverterContaEmpresaParaDTO() {
+        ContaCorrente conta = ContaCorrente.builder()
+                .id(2L)
+                .numeroConta("99999")
+                .saldo(new BigDecimal("5000.00"))
+                .tipoTitular(TipoTitularConta.EMPRESA)
+                .build();
+
+        ContaCorrenteResponseDTO dto = mapper.toResponseDTO(conta);
+
+        assertNotNull(dto);
+        assertEquals(2L, dto.getId());
+        assertEquals("99999", dto.getNumeroConta());
+        assertEquals(0, new BigDecimal("5000.00").compareTo(dto.getSaldo()));
+        assertEquals(TipoTitularConta.EMPRESA, dto.getTipoTitular());
     }
 }

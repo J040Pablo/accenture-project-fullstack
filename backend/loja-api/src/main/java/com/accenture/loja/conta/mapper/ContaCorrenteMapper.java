@@ -2,13 +2,12 @@ package com.accenture.loja.conta.mapper;
 
 import com.accenture.loja.conta.dto.ContaCorrenteResponseDTO;
 import com.accenture.loja.conta.model.ContaCorrente;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ContaCorrenteMapper {
 
-    private ContaCorrenteMapper() {
-    }
-
-    public static ContaCorrenteResponseDTO toResponseDTO(ContaCorrente conta) {
+    public ContaCorrenteResponseDTO toResponseDTO(ContaCorrente conta) {
         if (conta == null) {
             return null;
         }
