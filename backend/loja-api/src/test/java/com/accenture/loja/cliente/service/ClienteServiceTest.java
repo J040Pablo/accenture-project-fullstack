@@ -6,6 +6,7 @@ import com.accenture.loja.cliente.mapper.ClienteMapper;
 import com.accenture.loja.cliente.model.Cliente;
 import com.accenture.loja.cliente.repository.ClienteRepository;
 import com.accenture.loja.conta.model.ContaCorrente;
+import com.accenture.loja.conta.repository.ContaCorrenteRepository;
 import com.accenture.loja.endereco.dto.EnderecoRequestDTO;
 import com.accenture.loja.endereco.dto.ViaCepResponseDTO;
 import com.accenture.loja.endereco.model.Endereco;
@@ -31,6 +32,9 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ClienteServiceTest {
 
+	@Mock
+	private ContaCorrenteRepository contaCorrenteRepository;
+	
     @Mock
     private ClienteRepository clienteRepository;
 
