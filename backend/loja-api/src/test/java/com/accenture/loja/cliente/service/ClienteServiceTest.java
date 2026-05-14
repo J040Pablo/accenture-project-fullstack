@@ -41,8 +41,8 @@ class ClienteServiceTest {
     @Mock
     private ClienteMapper clienteMapper;
 
-        @Mock
-        private ContaCorrenteService contaCorrenteService;
+    @Mock
+    private ContaCorrenteService contaCorrenteService;
 
     @InjectMocks
     private ClienteService service;

@@ -27,7 +27,11 @@ public class ClienteService {
     private final ContaCorrenteService contaCorrenteService;
 
     public ClienteResponseDTO criarCliente(ClienteRequestDTO dto) {
+
+        validarDadosCliente(dto);
+
         validarCpf(dto.getCpf());
+
         validarEmail(dto.getEmail());
 
         String cep = dto.getEndereco().getCep();
@@ -36,21 +40,10 @@ public class ClienteService {
 
         ViaCepResponseDTO viaCep = viaCepService.buscarCep(cep);
 
-        if (viaCep == null || viaCep.getCep() == null) {
-            throw new BusinessException("CEP não encontrado");
-        }
+        Endereco endereco = criarEndereco(dto, viaCep);
 
-        Endereco endereco = Endereco.builder()
-                .cep(viaCep.getCep())
-                .rua(viaCep.getLogradouro())
-                .bairro(viaCep.getBairro())
-                .cidade(viaCep.getLocalidade())
-                .uf(viaCep.getUf())
-                .numero(dto.getEndereco().getNumero())
-                .complemento(dto.getEndereco().getComplemento())
-                .build();
-
-        ContaCorrente contaCorrente = contaCorrenteService.criarContaPara(TipoTitularConta.CLIENTE);
+        ContaCorrente contaCorrente =
+                contaCorrenteService.criarContaPara(TipoTitularConta.CLIENTE);
 
         Cliente cliente = Cliente.builder()
                 .nome(dto.getNome())
@@ -74,16 +67,22 @@ public class ClienteService {
 
     public ClienteResponseDTO buscarPorId(Long id) {
         Cliente cliente = clienteRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("Cliente não encontrado"));
+                .orElseThrow(() ->
+                        new BusinessException("Cliente não encontrado"));
 
         return clienteMapper.toResponseDTO(cliente);
     }
 
     public ClienteResponseDTO atualizarCliente(Long id, ClienteRequestDTO dto) {
+
+        validarDadosCliente(dto);
+
         Cliente cliente = clienteRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("Cliente não encontrado"));
+                .orElseThrow(() ->
+                        new BusinessException("Cliente não encontrado"));
 
         validarCpfNaAtualizacao(dto.getCpf(), id);
+
         validarEmailNaAtualizacao(dto.getEmail(), id);
 
         String cep = dto.getEndereco().getCep();
@@ -122,12 +121,25 @@ public class ClienteService {
 
     public void deletarCliente(Long id) {
         Cliente cliente = clienteRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("Cliente não encontrado"));
+                .orElseThrow(() ->
+                        new BusinessException("Cliente não encontrado"));
 
         clienteRepository.delete(cliente);
     }
 
+    private void validarDadosCliente(ClienteRequestDTO dto) {
+
+        if (dto == null) {
+            throw new BusinessException("Dados do cliente são obrigatórios");
+        }
+
+        if (dto.getEndereco() == null) {
+            throw new BusinessException("Endereço é obrigatório");
+        }
+    }
+
     private void validarCep(String cep) {
+
         if (cep == null || cep.isBlank()) {
             throw new BusinessException("CEP é obrigatório");
         }
@@ -163,5 +175,25 @@ public class ClienteService {
         if (clienteRepository.existsByEmailAndIdNot(email, id)) {
             throw new BusinessException("Email já cadastrado para outro cliente");
         }
+    }
+
+    private Endereco criarEndereco(
+            ClienteRequestDTO dto,
+            ViaCepResponseDTO viaCep
+    ) {
+
+        if (viaCep == null || viaCep.getCep() == null) {
+            throw new BusinessException("CEP não encontrado");
+        }
+
+        return Endereco.builder()
+                .cep(viaCep.getCep())
+                .rua(viaCep.getLogradouro())
+                .bairro(viaCep.getBairro())
+                .cidade(viaCep.getLocalidade())
+                .uf(viaCep.getUf())
+                .numero(dto.getEndereco().getNumero())
+                .complemento(dto.getEndereco().getComplemento())
+                .build();
     }
 }
