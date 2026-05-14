@@ -251,6 +251,30 @@ class ClienteServiceTest {
     }
 
     @Test
+    void criarCliente_dtoNulo_lancaExcecao() {
+
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> service.criarCliente(null)
+        );
+
+        assertEquals("Dados do cliente são obrigatórios", ex.getMessage());
+    }
+
+    @Test
+    void criarCliente_enderecoNulo_lancaExcecao() {
+
+        request.setEndereco(null);
+
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> service.criarCliente(request)
+        );
+
+        assertEquals("Endereço é obrigatório", ex.getMessage());
+    }
+
+    @Test
     void listarClientes_retornaLista() {
 
         when(clienteRepository.findAll())
