@@ -56,11 +56,53 @@
     @apply rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] p-2 flex flex-col lg:flex-row lg:items-center gap-2;
     margin-top: var(--section-gap-sm);
     margin-bottom: var(--section-gap);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
   }
 
   /* ensure header + toolbar stack consistently when used together */
   .page-header + .page-toolbar {
     margin-top: calc(var(--section-gap-sm) * 0.5);
+  }
+
+  /* ── Premium Utilities ────────────────────────────────────────────────────── */
+
+  .glass {
+    @apply bg-white/[0.03] backdrop-blur-md border border-white/10;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+
+  .glass-muted {
+    @apply bg-black/40 backdrop-blur-xl border border-white/[0.05];
+  }
+
+  .glossy {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(255, 255, 255, 0) 100%
+    );
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#a100ff] via-[#d8b4fe] to-white;
+  }
+
+  .premium-border {
+    position: relative;
+  }
+
+  .premium-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(161, 0, 255, 0.3), transparent 50%, rgba(161, 0, 255, 0.1));
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    pointer-events: none;
   }
 }
 

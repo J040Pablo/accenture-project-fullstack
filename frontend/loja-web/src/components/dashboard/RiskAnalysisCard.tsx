@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, AlertCircle } from 'lucide-react';
+import { Card } from '../ui/Card';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -129,44 +130,45 @@ export function RiskAnalysisCard() {
   const maxVal = Math.max(...riskItems.map((risk) => risk.value));
 
   return (
-    <div className="rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] overflow-hidden flex flex-col">
+    <Card className="overflow-hidden flex flex-col">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-[#1f1f1f] flex items-center justify-between gap-4">
+      <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between gap-4 bg-[#0d0d0d]/80 backdrop-blur-sm">
         <div>
-          <p className="text-[11px] text-slate-500 mb-0.5 uppercase tracking-wide font-medium">
-            Resumo dos pedidos avaliados
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-0.5">
+            Monitoramento de Segurança
           </p>
 
-          <h2 className="text-base font-semibold text-white">
-            Análise de Risco
+          <h2 className="text-base font-black text-white tracking-tight">
+            Score de Risco
           </h2>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#2a2a2a] bg-[#131313] text-[11px] text-slate-400 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#a100ff]" />
-            {TOTAL} pedidos
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/5 bg-white/5 text-[10px] font-black uppercase tracking-tighter text-slate-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#a100ff] animate-pulse shadow-[0_0_8px_#a100ff]" />
+            {TOTAL} analisados
           </span>
 
-          <div className="w-9 h-9 rounded-xl border border-[#2a2a2a] bg-[#131313] flex items-center justify-center text-[#a100ff] shrink-0">
-            <ShieldCheck className="w-4 h-4" />
+          <div className="w-10 h-10 rounded-2xl bg-[#a100ff]/10 border border-[#a100ff]/20 flex items-center justify-center text-[#a100ff] shrink-0 shadow-inner">
+            <ShieldCheck className="w-5 h-5" />
           </div>
         </div>
       </div>
 
       {/* Highlight banner */}
-      <div className="mx-6 mt-5 mb-4 px-4 py-3 rounded-xl border border-[#2a2a2a] bg-[#a100ff]/5 flex items-center gap-3">
-        <div className="w-7 h-7 rounded-lg bg-[#a100ff]/10 border border-[#a100ff]/20 flex items-center justify-center shrink-0">
-          <ShieldCheck className="w-3.5 h-3.5 text-[#d8b4fe]" />
+      <div className="mx-6 mt-5 mb-4 px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-4 relative overflow-hidden group/banner">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#a100ff]/5 to-transparent opacity-0 group-hover/banner:opacity-100 transition-opacity duration-500" />
+        <div className="w-9 h-9 rounded-xl bg-[#a100ff]/10 border border-[#a100ff]/20 flex items-center justify-center shrink-0 relative z-10">
+          <ShieldCheck className="w-4 h-4 text-[#d8b4fe]" />
         </div>
 
-        <div>
-          <p className="text-xs font-semibold text-[#d8b4fe]">
-            Operação controlada
+        <div className="relative z-10">
+          <p className="text-xs font-black text-white uppercase tracking-tight">
+            Operação Blindada
           </p>
 
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            Baixo risco predominante nos pedidos
+          <p className="text-[10px] font-bold text-slate-500 mt-0.5 uppercase tracking-tighter opacity-70">
+            Integridade de 92% nas transações recentes
           </p>
         </div>
       </div>
@@ -294,19 +296,17 @@ export function RiskAnalysisCard() {
       </div>
 
       {/* Footer */}
-      <div className="mt-auto px-6 py-4 border-t border-[#1f1f1f]">
-        <p className="text-xs text-slate-500 mb-0.5">
-          A maioria dos pedidos apresenta{' '}
-          <span className="text-[#d8b4fe] font-medium">
-            baixo risco operacional
-          </span>
-          .
-        </p>
-
-        <p className="text-[11px] text-slate-600">
-          {TOTAL} pedidos analisados no período
+      <div className="mt-auto px-6 py-4 border-t border-white/5 bg-black/20">
+        <div className="flex items-center gap-2 mb-1.5">
+           <AlertCircle className="w-3 h-3 text-[#a100ff]" />
+           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+             Status Operacional
+           </p>
+        </div>
+        <p className="text-[10px] font-medium text-slate-500 uppercase tracking-tighter leading-relaxed">
+          Protocolos de segurança ativos. A maioria dos pedidos apresenta baixo risco no sistema.
         </p>
       </div>
-    </div>
+    </Card>
   );
 }

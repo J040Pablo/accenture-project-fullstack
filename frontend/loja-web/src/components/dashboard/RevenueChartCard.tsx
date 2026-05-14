@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Card } from '../ui/Card';
+import { TrendingUp, Calendar } from 'lucide-react';
 
 // ─── Data & Constants ─────────────────────────────────────────────────────────
 
@@ -94,30 +96,35 @@ export function RevenueChartCard() {
   });
 
   return (
-    <div className="rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] overflow-hidden transition-all duration-300 hover:border-[#3a3a3a]">
+    <Card className="overflow-hidden transition-all duration-300">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="px-6 py-4 border-b border-[#1f1f1f] flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-[11px] text-slate-500 mb-0.5 uppercase tracking-wide font-medium">
-            Receita dos pedidos pagos
-          </p>
-          <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-sm text-slate-400">Faturamento da Semana:</span>
-            <span className="text-2xl font-bold text-white tracking-tight">R$ 8.940,00</span>
+      <div className="px-6 py-4 border-b border-white/5 flex flex-wrap items-center justify-between gap-4 bg-[#0d0d0d]/80 backdrop-blur-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-2xl bg-[#a100ff]/10 border border-[#a100ff]/20 flex items-center justify-center text-[#a100ff] shadow-inner">
+             <TrendingUp className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">
+              Performance de Vendas
+            </p>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-2xl font-black text-white tracking-tight">R$ 8.940,00</span>
+              <span className="text-[10px] font-bold text-[#a1ffdb] uppercase tracking-tighter bg-[#a1ffdb]/10 px-1.5 py-0.5 rounded-md">+12.5%</span>
+            </div>
           </div>
         </div>
 
         {/* Time filter buttons */}
-        <div className="flex items-center gap-0.5 bg-[#131313] border border-[#2a2a2a] rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-black/40 border border-white/5 rounded-2xl p-1 shadow-inner">
           {TIME_FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setActiveFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+              className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-200 ${
                 activeFilter === f
-                  ? 'bg-[#222222] border border-[#3a3a3a] text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-300'
+                  ? 'bg-[#a100ff] text-white shadow-[0_0_15px_-5px_#a100ff]'
+                  : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
               }`}
             >
               {f}
@@ -245,21 +252,24 @@ export function RevenueChartCard() {
               transform: `translate(${tooltipOnLeft ? 'calc(-100% - 14px)' : '14px'}, -50%)`,
             }}
           >
-            <div className="bg-[#111111]/95 backdrop-blur-md border border-[#2a2a2a] rounded-xl px-4 py-3 shadow-2xl min-w-[155px]">
-              <div className="flex items-center gap-2 mb-2">
+            <div className="glass border-white/10 rounded-2xl px-5 py-4 shadow-2xl min-w-[170px] glossy">
+              <div className="flex items-center gap-2 mb-3">
                 <div className="w-2 h-2 rounded-full bg-[#a100ff] shrink-0 shadow-[0_0_8px_rgba(161,0,255,0.7)]" />
-                <span className="text-xs font-semibold text-slate-300">{activeItem.label}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{activeItem.label}</span>
               </div>
-              <p className="text-base font-bold text-white leading-tight">
+              <p className="text-xl font-black text-white leading-tight tracking-tight">
                 {formatCurrency(activeItem.value)}
               </p>
-              <p className="text-[11px] text-slate-500 mt-1">
-                {activeItem.orders} pedidos pagos
-              </p>
+              <div className="flex items-center gap-2 mt-2 opacity-60">
+                 <Calendar className="w-3 h-3 text-[#a100ff]" />
+                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                   {activeItem.orders} pedidos registrados
+                 </span>
+              </div>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

@@ -18,14 +18,14 @@ Table.displayName = "Table";
 
 export const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
   ({ className, ...props }, ref) => (
-    <thead ref={ref} className={cn("border-b border-slate-800 bg-[#1a1a1a]", className)} {...props} />
+    <thead ref={ref} className={cn("border-b border-[#2a2a2a] bg-[#0b0b0b]/50 backdrop-blur-sm", className)} {...props} />
   )
 );
 TableHeader.displayName = "TableHeader";
 
 export const TableBody = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
   ({ className, ...props }, ref) => (
-    <tbody ref={ref} className={cn("divide-y divide-slate-800", className)} {...props} />
+    <tbody ref={ref} className={cn("divide-y divide-[#141414]", className)} {...props} />
   )
 );
 TableBody.displayName = "TableBody";
@@ -34,7 +34,7 @@ export const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttribut
   ({ className, ...props }, ref) => (
     <tr
       ref={ref}
-      className={cn("transition-colors hover:bg-slate-800/50 data-[state=selected]:bg-[#1a1a1a]", className)}
+      className={cn("transition-all duration-200 hover:bg-white/[0.02] active:bg-white/[0.04] data-[state=selected]:bg-[#1a1a1a]", className)}
       {...props}
     />
   )
@@ -45,7 +45,7 @@ export const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttr
   ({ className, ...props }, ref) => (
     <th
       ref={ref}
-      className={cn("h-12 px-4 text-left align-middle font-medium text-slate-500 [&:has([role=checkbox])]:pr-0", className)}
+      className={cn("h-12 px-4 text-left align-middle font-bold text-slate-500 uppercase tracking-wider text-[10px] [&:has([role=checkbox])]:pr-0", className)}
       {...props}
     />
   )

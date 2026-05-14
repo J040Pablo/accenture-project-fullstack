@@ -18,8 +18,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <input
           type={type}
           className={cn(
-            "w-full bg-[#151515] border border-[#2a2a2a] h-11 rounded-xl px-4 text-sm text-white placeholder-slate-500 outline-none focus:outline-none focus:ring-0 focus:border-[#a100ff] transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50",
-            error && "border-status-error",
+            "w-full bg-[#111111] border border-[#2a2a2a] h-11 rounded-xl px-4 text-sm text-white placeholder-slate-600 outline-none focus:outline-none focus:ring-0 focus:border-[#a100ff] focus:shadow-[0_0_15px_-3px_rgba(161,0,255,0.2)] transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50 shadow-inner",
+            error && "border-status-error focus:border-status-error focus:shadow-none",
             className
           )}
           ref={ref}

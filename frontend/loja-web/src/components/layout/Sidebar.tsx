@@ -124,29 +124,30 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* User Profile Area */}
-      <div className="mt-auto px-2 pt-4">
+      <div className="mt-auto px-2 pt-4 border-t border-[#1a1a1a]">
         <div
           className={cn(
-            'flex items-center h-10 rounded-full transition-all duration-300 overflow-hidden',
+            'flex items-center h-12 rounded-2xl transition-all duration-300 overflow-hidden',
             isExpanded
-              ? 'justify-start px-2 gap-2 bg-[#111111]'
+              ? 'justify-start px-2 gap-3 bg-white/[0.03] border border-white/5 backdrop-blur-md shadow-inner'
               : 'justify-center px-0'
           )}
         >
-          <div className="w-9 h-9 rounded-full bg-[#2a2a2a] flex items-center justify-center flex-shrink-0">
-            <User className="w-5 h-5 text-white" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a] flex items-center justify-center flex-shrink-0 border border-white/10 shadow-lg">
+            <User className="w-5 h-5 text-slate-300" />
           </div>
 
-          <span
-            className={cn(
-              'text-white font-medium text-sm truncate whitespace-nowrap transition-all duration-300 overflow-hidden',
-              isExpanded
-                ? 'opacity-100 translate-x-0 max-w-32'
-                : 'opacity-0 -translate-x-2 max-w-0'
-            )}
-          >
-            Hello, UserName
-          </span>
+          <div className={cn(
+            'flex flex-col transition-all duration-300 overflow-hidden',
+            isExpanded ? 'opacity-100 max-w-32' : 'opacity-0 max-w-0'
+          )}>
+            <span className="text-white font-bold text-xs truncate">
+              Administrador
+            </span>
+            <span className="text-[10px] text-slate-500 font-medium">
+              pablo@accenture.com
+            </span>
+          </div>
         </div>
       </div>
     </aside>

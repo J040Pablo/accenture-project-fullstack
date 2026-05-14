@@ -149,11 +149,7 @@ const statusStyles: Record<PedidoStatus, string> = {
   FALHOU: 'bg-[#1a1024] text-[#c4b5fd] border-[#5b21b6]/30'
 };
 
-const inputClassName =
-  'w-full bg-[#151515] border border-[#2a2a2a] rounded-xl px-4 text-sm text-white placeholder-slate-500 outline-none focus:outline-none focus:ring-0 focus:border-[#a100ff] transition-colors duration-200';
-
-const searchInputClassName =
-  'w-full h-12 bg-[#151515] border border-[#2a2a2a] rounded-full px-5 pr-14 text-slate-200 placeholder-slate-500 outline-none focus:outline-none focus:ring-0 focus:border-[#a100ff] transition-colors duration-200';
+import { SearchInput } from '../../components/ui/SearchInput';
 
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -301,12 +297,6 @@ export default function PedidosList() {
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         searchPlaceholder="Buscar por cliente ou número do pedido"
-        inputClassName={searchInputClassName}
-        searchAction={
-          <button className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center text-slate-500 hover:text-[#a100ff] transition-colors">
-            <Search className="w-5 h-5" />
-          </button>
-        }
         rightContent={
           <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#111111] border border-[#2a2a2a] rounded-xl">
             {statusOptions.map(status => (
@@ -506,13 +496,11 @@ export default function PedidosList() {
                     </div>
 
                     <div className="relative">
-                      <input
-                        type="text"
-                        value={clienteSearch}
-                        onChange={event => setClienteSearch(event.target.value)}
-                        placeholder="Nome, CPF ou telefone do cliente..."
-                        className={`${inputClassName} h-12 px-5`}
-                      />
+                    <SearchInput
+                      value={clienteSearch}
+                      onChange={setClienteSearch}
+                      placeholder="Nome, CPF ou telefone do cliente..."
+                    />
                     </div>
 
                     <div className="mt-6 space-y-3">
@@ -586,12 +574,11 @@ export default function PedidosList() {
                         <Search className="w-4 h-4 text-[#a100ff]" />
                         <h3 className="text-xs font-bold text-white uppercase tracking-widest">Adicionar Itens</h3>
                       </div>
-                      <input
-                        type="text"
+                      <SearchInput
                         value={productSearch}
-                        onChange={event => setProductSearch(event.target.value)}
+                        onChange={setProductSearch}
                         placeholder="Nome ou SKU..."
-                        className={`${inputClassName} h-11`}
+                        className="h-11"
                       />
                     </div>
 
