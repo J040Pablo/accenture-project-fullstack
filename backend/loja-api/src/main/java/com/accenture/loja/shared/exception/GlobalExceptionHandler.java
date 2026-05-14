@@ -7,70 +7,96 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErroResponse> tratarIllegalArgumentException(IllegalArgumentException ex) {
-        HttpStatus status = HttpStatus.BAD_REQUEST;
-
-        ErroResponse erro = new ErroResponse(
-                LocalDateTime.now(),
-                status.value(),
+        return criarRespostaErro(
+                HttpStatus.BAD_REQUEST,
                 "Bad Request",
                 ex.getMessage()
         );
-
-        return ResponseEntity.status(status).body(erro);
     }
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErroResponse> tratarIllegalStateException(IllegalStateException ex) {
-        HttpStatus status = HttpStatus.BAD_REQUEST;
-
-        ErroResponse erro = new ErroResponse(
-                LocalDateTime.now(),
-                status.value(),
+        return criarRespostaErro(
+                HttpStatus.BAD_REQUEST,
                 "Bad Request",
                 ex.getMessage()
         );
-
-        return ResponseEntity.status(status).body(erro);
     }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErroResponse> tratarBusinessException(BusinessException ex) {
-        HttpStatus status = HttpStatus.BAD_REQUEST;
-
-        ErroResponse erro = new ErroResponse(
-                LocalDateTime.now(),
-                status.value(),
+        return criarRespostaErro(
+                HttpStatus.BAD_REQUEST,
                 "Erro de regra de negócio",
                 ex.getMessage()
         );
+    }
 
-        return ResponseEntity.status(status).body(erro);
+    @ExceptionHandler(RegraNegocioException.class)
+    public ResponseEntity<ErroResponse> tratarRegraNegocioException(RegraNegocioException ex) {
+        return criarRespostaErro(
+                HttpStatus.BAD_REQUEST,
+                "Erro de regra de negócio",
+                ex.getMessage()
+        );
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErroResponse> tratarResourceNotFoundException(ResourceNotFoundException ex) {
+        return criarRespostaErro(
+                HttpStatus.NOT_FOUND,
+                "Recurso não encontrado",
+                ex.getMessage()
+        );
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErroResponse> tratarValidacao(MethodArgumentNotValidException ex) {
-        HttpStatus status = HttpStatus.BAD_REQUEST;
-
         String mensagem = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .findFirst()
                 .map(erro -> erro.getDefaultMessage())
-                .orElse("Dados inválidos.");
+                .collect(Collectors.joining("; "));
 
-        ErroResponse erro = new ErroResponse(
-                LocalDateTime.now(),
-                status.value(),
+        if (mensagem.isBlank()) {
+            mensagem = "Dados inválidos.";
+        }
+
+        return criarRespostaErro(
+                HttpStatus.BAD_REQUEST,
                 "Erro de validação",
                 mensagem
         );
+    }
 
-        return ResponseEntity.status(status).body(erro);
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErroResponse> tratarException(Exception ex) {
+        return criarRespostaErro(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Erro interno",
+                "Ocorreu um erro inesperado. Tente novamente mais tarde."
+        );
+    }
+
+    private ResponseEntity<ErroResponse> criarRespostaErro(
+            HttpStatus status,
+            String erro,
+            String mensagem
+    ) {
+        ErroResponse resposta = new ErroResponse(
+                LocalDateTime.now(),
+                status.value(),
+                erro,
+                mensagem
+        );
+
+        return ResponseEntity.status(status).body(resposta);
     }
 }
