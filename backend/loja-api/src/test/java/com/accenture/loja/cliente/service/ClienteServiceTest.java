@@ -314,6 +314,9 @@ class ClienteServiceTest {
         when(clienteRepository.findById(1L))
                 .thenReturn(Optional.of(cliente));
 
+        when(viaCepService.buscarCep(any()))
+                .thenReturn(viaCepResponse);
+
         when(clienteRepository.save(any()))
                 .thenReturn(cliente);
 
@@ -332,9 +335,212 @@ class ClienteServiceTest {
 
         Cliente atualizado = captor.getValue();
 
-        assertEquals(request.getNome(), atualizado.getNome());
-        assertEquals(request.getEmail(), atualizado.getEmail());
+                assertEquals(request.getNome(), atualizado.getNome());
+                assertEquals(request.getCpf(), atualizado.getCpf());
+                assertEquals(request.getEmail(), atualizado.getEmail());
+
+                // endereço vindo do ViaCep + número/complemento do request
+                assertNotNull(atualizado.getEndereco());
+                assertEquals("01310-100", atualizado.getEndereco().getCep());
+                assertEquals("Avenida Paulista", atualizado.getEndereco().getRua());
+                assertEquals("Bela Vista", atualizado.getEndereco().getBairro());
+                assertEquals("São Paulo", atualizado.getEndereco().getCidade());
+                assertEquals("SP", atualizado.getEndereco().getUf());
+                assertEquals(request.getEndereco().getNumero(), atualizado.getEndereco().getNumero());
+                assertEquals(request.getEndereco().getComplemento(), atualizado.getEndereco().getComplemento());
     }
+
+        @Test
+        void atualizarCliente_cpfDuplicadoOutroCliente_lancaExcecao() {
+
+                when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+                when(clienteRepository.existsByCpfAndIdNot(request.getCpf(), 1L)).thenReturn(true);
+
+                BusinessException ex = assertThrows(
+                                BusinessException.class,
+                                () -> service.atualizarCliente(1L, request)
+                );
+
+                assertEquals("CPF já cadastrado para outro cliente", ex.getMessage());
+
+                verify(clienteRepository, never()).save(any());
+                verify(viaCepService, never()).buscarCep(any());
+        }
+
+        @Test
+        void atualizarCliente_emailDuplicadoOutroCliente_lancaExcecao() {
+
+                when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+                when(clienteRepository.existsByCpfAndIdNot(request.getCpf(), 1L)).thenReturn(false);
+                when(clienteRepository.existsByEmailAndIdNot(request.getEmail(), 1L)).thenReturn(true);
+
+                BusinessException ex = assertThrows(
+                                BusinessException.class,
+                                () -> service.atualizarCliente(1L, request)
+                );
+
+                assertEquals("Email já cadastrado para outro cliente", ex.getMessage());
+
+                verify(clienteRepository, never()).save(any());
+                verify(viaCepService, never()).buscarCep(any());
+        }
+
+        @Test
+        void atualizarCliente_cepInvalido_lancaExcecao() {
+
+                request.getEndereco().setCep("123");
+
+                when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+                when(clienteRepository.existsByCpfAndIdNot(request.getCpf(), 1L)).thenReturn(false);
+                when(clienteRepository.existsByEmailAndIdNot(request.getEmail(), 1L)).thenReturn(false);
+
+                BusinessException ex = assertThrows(
+                                BusinessException.class,
+                                () -> service.atualizarCliente(1L, request)
+                );
+
+                assertTrue(ex.getMessage().contains("CEP"));
+
+                verify(viaCepService, never()).buscarCep(any());
+                verify(clienteRepository, never()).save(any());
+        }
+
+        @Test
+        void atualizarCliente_cepNaoEncontrado_lancaExcecao() {
+
+                when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+                when(clienteRepository.existsByCpfAndIdNot(request.getCpf(), 1L)).thenReturn(false);
+                when(clienteRepository.existsByEmailAndIdNot(request.getEmail(), 1L)).thenReturn(false);
+                when(viaCepService.buscarCep(any())).thenReturn(null);
+
+                BusinessException ex = assertThrows(
+                                BusinessException.class,
+                                () -> service.atualizarCliente(1L, request)
+                );
+
+                assertEquals("CEP não encontrado", ex.getMessage());
+
+                verify(clienteRepository, never()).save(any());
+        }
+
+        @Test
+        void atualizarCliente_viaCepSemCep_lancaExcecao() {
+
+                when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+                when(clienteRepository.existsByCpfAndIdNot(request.getCpf(), 1L)).thenReturn(false);
+                when(clienteRepository.existsByEmailAndIdNot(request.getEmail(), 1L)).thenReturn(false);
+
+                ViaCepResponseDTO response = new ViaCepResponseDTO();
+                when(viaCepService.buscarCep(any())).thenReturn(response);
+
+                BusinessException ex = assertThrows(
+                                BusinessException.class,
+                                () -> service.atualizarCliente(1L, request)
+                );
+
+                assertEquals("CEP não encontrado", ex.getMessage());
+
+                verify(clienteRepository, never()).save(any());
+        }
+
+        @Test
+        void atualizarCliente_clienteSemEndereco_criaEnderecoEAtualiza() {
+
+                // cliente existente sem endereco
+                cliente.setEndereco(null);
+
+                when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+                when(clienteRepository.existsByCpfAndIdNot(request.getCpf(), 1L)).thenReturn(false);
+                when(clienteRepository.existsByEmailAndIdNot(request.getEmail(), 1L)).thenReturn(false);
+                when(viaCepService.buscarCep("01310100")).thenReturn(viaCepResponse);
+                when(clienteRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+                when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+                ClienteResponseDTO resultado = service.atualizarCliente(1L, request);
+
+                assertNotNull(resultado);
+
+                ArgumentCaptor<Cliente> captor = ArgumentCaptor.forClass(Cliente.class);
+                verify(clienteRepository).save(captor.capture());
+
+                Cliente atualizado = captor.getValue();
+                assertNotNull(atualizado.getEndereco());
+                assertEquals("01310-100", atualizado.getEndereco().getCep());
+        }
+
+        @Test
+        void criarCliente_cepNulo_lancaExcecao() {
+
+                request.getEndereco().setCep(null);
+
+                when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
+                when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
+
+                BusinessException ex = assertThrows(
+                                BusinessException.class,
+                                () -> service.criarCliente(request)
+                );
+
+                assertEquals("CEP é obrigatório", ex.getMessage());
+                verify(viaCepService, never()).buscarCep(any());
+                verify(clienteRepository, never()).save(any());
+        }
+
+        @Test
+        void atualizarCliente_cepNulo_lancaExcecao() {
+
+                request.getEndereco().setCep(null);
+
+                when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+                when(clienteRepository.existsByCpfAndIdNot(request.getCpf(), 1L)).thenReturn(false);
+                when(clienteRepository.existsByEmailAndIdNot(request.getEmail(), 1L)).thenReturn(false);
+
+                BusinessException ex = assertThrows(
+                                BusinessException.class,
+                                () -> service.atualizarCliente(1L, request)
+                );
+
+                assertEquals("CEP é obrigatório", ex.getMessage());
+                verify(viaCepService, never()).buscarCep(any());
+                verify(clienteRepository, never()).save(any());
+        }
+
+        @Test
+        void criarCliente_cepEmBranco_lancaExcecao() {
+
+                request.getEndereco().setCep("");
+
+                when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
+                when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
+
+                BusinessException ex = assertThrows(
+                                BusinessException.class,
+                                () -> service.criarCliente(request)
+                );
+
+                assertEquals("CEP é obrigatório", ex.getMessage());
+                verify(viaCepService, never()).buscarCep(any());
+                verify(clienteRepository, never()).save(any());
+        }
+
+        @Test
+        void atualizarCliente_cepEmBranco_lancaExcecao() {
+
+                request.getEndereco().setCep("");
+
+                when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+                when(clienteRepository.existsByCpfAndIdNot(request.getCpf(), 1L)).thenReturn(false);
+                when(clienteRepository.existsByEmailAndIdNot(request.getEmail(), 1L)).thenReturn(false);
+
+                BusinessException ex = assertThrows(
+                                BusinessException.class,
+                                () -> service.atualizarCliente(1L, request)
+                );
+
+                assertEquals("CEP é obrigatório", ex.getMessage());
+                verify(viaCepService, never()).buscarCep(any());
+                verify(clienteRepository, never()).save(any());
+        }
 
     @Test
     void atualizarCliente_naoEncontrado_lancaExcecao() {
