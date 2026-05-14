@@ -20,7 +20,7 @@ public class ContaCorrente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String numeroConta;
 
     @Column(nullable = false, precision = 19, scale = 2)

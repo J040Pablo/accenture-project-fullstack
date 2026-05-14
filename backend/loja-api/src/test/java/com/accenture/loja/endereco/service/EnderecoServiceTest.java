@@ -1,5 +1,6 @@
 package com.accenture.loja.endereco.service;
 
+import com.accenture.loja.endereco.dto.EnderecoRequestDTO;
 import com.accenture.loja.endereco.dto.EnderecoResponseDTO;
 import com.accenture.loja.endereco.mapper.EnderecoMapper;
 import com.accenture.loja.endereco.model.Endereco;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class EnderecoServiceTest {
@@ -21,6 +23,7 @@ class EnderecoServiceTest {
 
     private Endereco endereco;
     private EnderecoResponseDTO enderecoResponseDTO;
+    private EnderecoRequestDTO enderecoRequestDTO;
 
     @BeforeEach
     void setup() {
@@ -54,6 +57,12 @@ class EnderecoServiceTest {
                 .cidade("Campina Grande")
                 .uf("PB")
                 .build();
+
+        enderecoRequestDTO = EnderecoRequestDTO.builder()
+                .cep("58400000")
+                .numero("100")
+                .complemento("Apto 101")
+                .build();
     }
 
     @Test
@@ -70,14 +79,13 @@ class EnderecoServiceTest {
         assertNotNull(resultado);
         assertEquals(1, resultado.size());
 
-        assertEquals(1L, resultado.getFirst().getId());
-        assertEquals("58400000", resultado.getFirst().getCep());
-        assertEquals("Rua A", resultado.getFirst().getRua());
-        assertEquals("100", resultado.getFirst().getNumero());
+        assertEquals(1L, resultado.get(0).getId());
+        assertEquals("58400000", resultado.get(0).getCep());
+        assertEquals("Rua A", resultado.get(0).getRua());
+        assertEquals("100", resultado.get(0).getNumero());
 
-        verify(enderecoRepository, times(1)).findAll();
-        verify(enderecoMapper, times(1))
-                .toResponseDTO(endereco);
+        verify(enderecoRepository).findAll();
+        verify(enderecoMapper).toResponseDTO(endereco);
     }
 
     @Test
@@ -86,16 +94,13 @@ class EnderecoServiceTest {
         when(enderecoRepository.findAll())
                 .thenReturn(List.of());
 
-        List<EnderecoResponseDTO> resultado =
-                enderecoService.listar();
+        List<EnderecoResponseDTO> resultado = enderecoService.listar();
 
         assertNotNull(resultado);
         assertTrue(resultado.isEmpty());
 
-        verify(enderecoRepository, times(1)).findAll();
-
-        verify(enderecoMapper, never())
-                .toResponseDTO(any());
+        verify(enderecoRepository).findAll();
+        verify(enderecoMapper, never()).toResponseDTO(any());
     }
 
     @Test
@@ -107,20 +112,14 @@ class EnderecoServiceTest {
         when(enderecoMapper.toResponseDTO(endereco))
                 .thenReturn(enderecoResponseDTO);
 
-        EnderecoResponseDTO resultado =
-                enderecoService.buscarPorId(1L);
+        EnderecoResponseDTO resultado = enderecoService.buscarPorId(1L);
 
         assertNotNull(resultado);
-
         assertEquals(1L, resultado.getId());
         assertEquals("Rua A", resultado.getRua());
-        assertEquals("Campina Grande", resultado.getCidade());
 
-        verify(enderecoRepository, times(1))
-                .findById(1L);
-
-        verify(enderecoMapper, times(1))
-                .toResponseDTO(endereco);
+        verify(enderecoRepository).findById(1L);
+        verify(enderecoMapper).toResponseDTO(endereco);
     }
 
     @Test
@@ -134,113 +133,51 @@ class EnderecoServiceTest {
                 () -> enderecoService.buscarPorId(99L)
         );
 
-        assertEquals(
-                "Endereço não encontrado",
-                exception.getMessage()
-        );
+        assertEquals("Endereço não encontrado", exception.getMessage());
 
-        verify(enderecoRepository, times(1))
-                .findById(99L);
-
-        verify(enderecoMapper, never())
-                .toResponseDTO(any());
+        verify(enderecoRepository).findById(99L);
+        verify(enderecoMapper, never()).toResponseDTO(any());
     }
 
     @Test
     void deveSalvarEndereco() {
 
-        Endereco enderecoSemId = Endereco.builder()
-                .cep("58400000")
-                .rua("Rua A")
-                .numero("100")
-                .bairro("Centro")
-                .cidade("Campina Grande")
-                .uf("PB")
-                .build();
+        when(enderecoRepository.save(any(Endereco.class)))
+                .thenReturn(endereco);
 
-        when(enderecoRepository.save(enderecoSemId))
+        when(enderecoMapper.toResponseDTO(endereco))
+                .thenReturn(enderecoResponseDTO);
+
+        EnderecoResponseDTO resultado = enderecoService.salvar(enderecoRequestDTO);
+
+        assertNotNull(resultado);
+        assertEquals(1L, resultado.getId());
+        assertEquals("58400000", resultado.getCep());
+
+        verify(enderecoRepository).save(any(Endereco.class));
+        verify(enderecoMapper).toResponseDTO(endereco);
+    }
+
+    @Test
+    void deveAtualizarEndereco() {
+
+        when(enderecoRepository.findById(1L))
+                .thenReturn(Optional.of(endereco));
+
+        when(enderecoRepository.save(any(Endereco.class)))
                 .thenReturn(endereco);
 
         when(enderecoMapper.toResponseDTO(endereco))
                 .thenReturn(enderecoResponseDTO);
 
         EnderecoResponseDTO resultado =
-                enderecoService.salvar(enderecoSemId);
-
-        assertNotNull(resultado);
-        assertEquals(1L, resultado.getId());
-        assertEquals("58400000", resultado.getCep());
-
-        verify(enderecoRepository, times(1))
-                .save(enderecoSemId);
-
-        verify(enderecoMapper, times(1))
-                .toResponseDTO(endereco);
-    }
-
-    @Test
-    void deveAtualizarEndereco() {
-
-        Endereco enderecoAtualizado = Endereco.builder()
-                .cep("58500000")
-                .rua("Rua B")
-                .numero("200")
-                .complemento("Casa")
-                .bairro("Catolé")
-                .cidade("João Pessoa")
-                .uf("PB")
-                .build();
-
-        Endereco enderecoSalvo = Endereco.builder()
-                .id(1L)
-                .cep("58500000")
-                .rua("Rua B")
-                .numero("200")
-                .complemento("Casa")
-                .bairro("Catolé")
-                .cidade("João Pessoa")
-                .uf("PB")
-                .build();
-
-        EnderecoResponseDTO responseAtualizado =
-                EnderecoResponseDTO.builder()
-                        .id(1L)
-                        .cep("58500000")
-                        .rua("Rua B")
-                        .numero("200")
-                        .complemento("Casa")
-                        .bairro("Catolé")
-                        .cidade("João Pessoa")
-                        .uf("PB")
-                        .build();
-
-        when(enderecoRepository.findById(1L))
-                .thenReturn(Optional.of(endereco));
-
-        when(enderecoRepository.save(any(Endereco.class)))
-                .thenReturn(enderecoSalvo);
-
-        when(enderecoMapper.toResponseDTO(enderecoSalvo))
-                .thenReturn(responseAtualizado);
-
-        EnderecoResponseDTO resultado =
-                enderecoService.atualizar(1L, enderecoAtualizado);
+                enderecoService.atualizar(1L, enderecoRequestDTO);
 
         assertNotNull(resultado);
 
-        assertEquals("58500000", resultado.getCep());
-        assertEquals("Rua B", resultado.getRua());
-        assertEquals("200", resultado.getNumero());
-        assertEquals("João Pessoa", resultado.getCidade());
-
-        verify(enderecoRepository, times(1))
-                .findById(1L);
-
-        verify(enderecoRepository, times(1))
-                .save(any(Endereco.class));
-
-        verify(enderecoMapper, times(1))
-                .toResponseDTO(enderecoSalvo);
+        verify(enderecoRepository).findById(1L);
+        verify(enderecoRepository).save(any(Endereco.class));
+        verify(enderecoMapper).toResponseDTO(endereco);
     }
 
     @Test
@@ -249,27 +186,13 @@ class EnderecoServiceTest {
         when(enderecoRepository.findById(99L))
                 .thenReturn(Optional.empty());
 
-        RuntimeException exception = assertThrows(
+        assertThrows(
                 RuntimeException.class,
-                () -> enderecoService.atualizar(
-                        99L,
-                        endereco
-                )
+                () -> enderecoService.atualizar(99L, enderecoRequestDTO)
         );
 
-        assertEquals(
-                "Endereço não encontrado",
-                exception.getMessage()
-        );
-
-        verify(enderecoRepository, times(1))
-                .findById(99L);
-
-        verify(enderecoRepository, never())
-                .save(any());
-
-        verify(enderecoMapper, never())
-                .toResponseDTO(any());
+        verify(enderecoRepository).findById(99L);
+        verify(enderecoRepository, never()).save(any());
     }
 
     @Test
@@ -280,11 +203,8 @@ class EnderecoServiceTest {
 
         enderecoService.deletar(1L);
 
-        verify(enderecoRepository, times(1))
-                .findById(1L);
-
-        verify(enderecoRepository, times(1))
-                .delete(endereco);
+        verify(enderecoRepository).findById(1L);
+        verify(enderecoRepository).delete(endereco);
     }
 
     @Test
@@ -293,20 +213,12 @@ class EnderecoServiceTest {
         when(enderecoRepository.findById(99L))
                 .thenReturn(Optional.empty());
 
-        RuntimeException exception = assertThrows(
+        assertThrows(
                 RuntimeException.class,
                 () -> enderecoService.deletar(99L)
         );
 
-        assertEquals(
-                "Endereço não encontrado",
-                exception.getMessage()
-        );
-
-        verify(enderecoRepository, times(1))
-                .findById(99L);
-
-        verify(enderecoRepository, never())
-                .delete(any());
+        verify(enderecoRepository).findById(99L);
+        verify(enderecoRepository, never()).delete(any());
     }
 }

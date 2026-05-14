@@ -99,4 +99,38 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(status).body(resposta);
     }
+    
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErroResponse> tratarNotFound(
+            ResourceNotFoundException ex
+    ) {
+
+        HttpStatus status = HttpStatus.NOT_FOUND;
+
+        ErroResponse erro = new ErroResponse(
+                LocalDateTime.now(),
+                status.value(),
+                "Recurso não encontrado",
+                ex.getMessage()
+        );
+
+        return ResponseEntity.status(status).body(erro);
+    }
+    
+    @ExceptionHandler(ServiceUnavailableException.class)
+    public ResponseEntity<ErroResponse> tratarServiceUnavailable(
+            ServiceUnavailableException ex
+    ) {
+
+        HttpStatus status = HttpStatus.SERVICE_UNAVAILABLE;
+
+        ErroResponse erro = new ErroResponse(
+                LocalDateTime.now(),
+                status.value(),
+                "Serviço indisponível",
+                ex.getMessage()
+        );
+
+        return ResponseEntity.status(status).body(erro);
+    }
 }

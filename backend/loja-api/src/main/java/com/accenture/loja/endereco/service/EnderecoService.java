@@ -1,11 +1,11 @@
 package com.accenture.loja.endereco.service;
 
+import com.accenture.loja.endereco.dto.EnderecoRequestDTO;
 import com.accenture.loja.endereco.dto.EnderecoResponseDTO;
-import com.accenture.loja.endereco.model.Endereco;
 import com.accenture.loja.endereco.mapper.EnderecoMapper;
+import com.accenture.loja.endereco.model.Endereco;
 import com.accenture.loja.endereco.repository.EnderecoRepository;
 import com.accenture.loja.shared.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -15,57 +15,51 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EnderecoService {
 
-    private final EnderecoRepository enderecoRepository;
-    private final EnderecoMapper enderecoMapper;
+	private final EnderecoRepository enderecoRepository;
+	private final EnderecoMapper enderecoMapper;
 
-    public List<EnderecoResponseDTO> listar() {
+	public List<EnderecoResponseDTO> listar() {
 
-        return enderecoRepository.findAll()
-                .stream()
-                .map(enderecoMapper::toResponseDTO)
-                .toList();
-    }
+		return enderecoRepository.findAll().stream().map(enderecoMapper::toResponseDTO).toList();
+	}
 
-    public EnderecoResponseDTO buscarPorId(Long id) {
+	public EnderecoResponseDTO buscarPorId(Long id) {
 
-        Endereco endereco = enderecoRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("Endereço não encontrado"));
+		Endereco endereco = enderecoRepository.findById(id)
+				.orElseThrow(() -> new BusinessException("Endereço não encontrado"));
 
-        return enderecoMapper.toResponseDTO(endereco);
-    }
+		return enderecoMapper.toResponseDTO(endereco);
+	}
 
-    public EnderecoResponseDTO salvar(Endereco endereco) {
+	public EnderecoResponseDTO salvar(EnderecoRequestDTO dto) {
 
-        Endereco enderecoSalvo = enderecoRepository.save(endereco);
+		Endereco endereco = Endereco.builder().cep(dto.getCep()).numero(dto.getNumero())
+				.complemento(dto.getComplemento()).build();
 
-        return enderecoMapper.toResponseDTO(enderecoSalvo);
-    }
+		Endereco enderecoSalvo = enderecoRepository.save(endereco);
 
-    public EnderecoResponseDTO atualizar(Long id, Endereco enderecoAtualizado) {
+		return enderecoMapper.toResponseDTO(enderecoSalvo);
+	}
 
-        Endereco endereco = enderecoRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("Endereço não encontrado"));
+	public EnderecoResponseDTO atualizar(Long id, EnderecoRequestDTO dto) {
 
-        endereco.setCep(enderecoAtualizado.getCep());
-        endereco.setRua(enderecoAtualizado.getRua());
-        endereco.setNumero(enderecoAtualizado.getNumero());
-        endereco.setComplemento(enderecoAtualizado.getComplemento());
-        endereco.setBairro(enderecoAtualizado.getBairro());
-        endereco.setCidade(enderecoAtualizado.getCidade());
-        endereco.setUf(enderecoAtualizado.getUf());
+		Endereco endereco = enderecoRepository.findById(id)
+				.orElseThrow(() -> new BusinessException("Endereço não encontrado"));
 
-        Endereco enderecoSalvo = enderecoRepository.save(endereco);
+		endereco.setCep(dto.getCep());
+		endereco.setNumero(dto.getNumero());
+		endereco.setComplemento(dto.getComplemento());
 
-        return enderecoMapper.toResponseDTO(enderecoSalvo);
-    }
+		Endereco enderecoSalvo = enderecoRepository.save(endereco);
 
-    public void deletar(Long id) {
+		return enderecoMapper.toResponseDTO(enderecoSalvo);
+	}
 
-        Endereco endereco = enderecoRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("Endereço não encontrado"));
+	public void deletar(Long id) {
 
-        enderecoRepository.delete(endereco);
-    }
+		Endereco endereco = enderecoRepository.findById(id)
+				.orElseThrow(() -> new BusinessException("Endereço não encontrado"));
 
-   
+		enderecoRepository.delete(endereco);
+	}
 }
