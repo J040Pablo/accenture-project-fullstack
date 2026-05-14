@@ -54,6 +54,13 @@ class EmpresaServiceTest {
 
         when(empresaRepository.existsByCnpj(request.cnpj())).thenReturn(false);
         when(contaCorrenteService.existeContaEmpresa()).thenReturn(false);
+        when(contaCorrenteService.criarContaPara(EMPRESA)).thenAnswer(invocation -> {
+            com.accenture.loja.conta.model.ContaCorrente conta = new com.accenture.loja.conta.model.ContaCorrente();
+            conta.setNumeroConta("12345");
+            conta.setSaldo(java.math.BigDecimal.ZERO);
+            conta.setTipoTitular(invocation.getArgument(0));
+            return conta;
+        });
 
         Empresa toSave = new Empresa(request.razaoSocial(), request.nomeFantasia(), request.cnpj(), request.email(), request.telefone());
         toSave.setId(10L);
@@ -78,6 +85,7 @@ class EmpresaServiceTest {
 
         verify(empresaRepository).existsByCnpj(request.cnpj());
         verify(contaCorrenteService).existeContaEmpresa();
+        verify(contaCorrenteService).criarContaPara(EMPRESA);
     }
 
     @Test

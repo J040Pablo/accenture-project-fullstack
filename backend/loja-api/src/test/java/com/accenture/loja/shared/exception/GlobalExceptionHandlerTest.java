@@ -21,21 +21,21 @@ class GlobalExceptionHandlerTest {
     void deveTratarIllegalArgumentException() {
         ResponseEntity<ErroResponse> response = globalExceptionHandler.tratarIllegalArgumentException(new IllegalArgumentException("Argumento inválido"));
 
-        assertResponsePadrao(response, "Bad Request", "Argumento inválido");
+        assertResponsePadrao(response, HttpStatus.BAD_REQUEST, "Bad Request", "Argumento inválido");
     }
 
     @Test
     void deveTratarIllegalStateException() {
         ResponseEntity<ErroResponse> response = globalExceptionHandler.tratarIllegalStateException(new IllegalStateException("Estado inválido"));
 
-        assertResponsePadrao(response, "Bad Request", "Estado inválido");
+        assertResponsePadrao(response, HttpStatus.BAD_REQUEST, "Bad Request", "Estado inválido");
     }
 
     @Test
     void deveTratarBusinessException() {
         ResponseEntity<ErroResponse> response = globalExceptionHandler.tratarBusinessException(new BusinessException("Regra de negócio violada"));
 
-        assertResponsePadrao(response, "Erro de regra de negócio", "Regra de negócio violada");
+        assertResponsePadrao(response, HttpStatus.BAD_REQUEST, "Erro de regra de negócio", "Regra de negócio violada");
     }
 
     @Test
@@ -48,13 +48,53 @@ class GlobalExceptionHandlerTest {
 
         ResponseEntity<ErroResponse> response = globalExceptionHandler.tratarValidacao(exception);
 
-        assertResponsePadrao(response, "Erro de validação", "Mensagem de validação");
+        assertResponsePadrao(response, HttpStatus.BAD_REQUEST, "Erro de validação", "Mensagem de validação");
     }
 
-    private void assertResponsePadrao(ResponseEntity<ErroResponse> response, String erroEsperado, String mensagemEsperada) {
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    @Test
+    void deveTratarRegraNegocioException() {
+        RegraNegocioException exception = new RegraNegocioException("Regra inválida");
+
+        ResponseEntity<ErroResponse> response = globalExceptionHandler.tratarRegraNegocioException(exception);
+
+        assertResponsePadrao(response, HttpStatus.BAD_REQUEST, "Erro de regra de negócio", "Regra inválida");
+    }
+
+    @Test
+    void deveTratarResourceNotFoundException() {
+        ResourceNotFoundException exception = new ResourceNotFoundException("Cliente não encontrado");
+
+        ResponseEntity<ErroResponse> response = globalExceptionHandler.tratarResourceNotFoundException(exception);
+
+        assertResponsePadrao(response, HttpStatus.NOT_FOUND, "Recurso não encontrado", "Cliente não encontrado");
+    }
+
+    @Test
+    void deveTratarExceptionGenericaSemExporDetalheInterno() {
+        Exception exception = new Exception("Erro sensível do sistema");
+
+        ResponseEntity<ErroResponse> response = globalExceptionHandler.tratarException(exception);
+
+        assertResponsePadrao(response, HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno", "Ocorreu um erro inesperado. Tente novamente mais tarde.");
+    }
+
+    @Test
+    void deveTratarValidacaoSemErrosDeCampo() throws Exception {
+        Method method = AlvoDeTeste.class.getDeclaredMethod("alvo", String.class);
+        MethodParameter methodParameter = new MethodParameter(method, 0);
+        BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new Object(), "objeto");
+
+        MethodArgumentNotValidException exception = new MethodArgumentNotValidException(methodParameter, bindingResult);
+
+        ResponseEntity<ErroResponse> response = globalExceptionHandler.tratarValidacao(exception);
+
+        assertResponsePadrao(response, HttpStatus.BAD_REQUEST, "Erro de validação", "Dados inválidos.");
+    }
+
+    private void assertResponsePadrao(ResponseEntity<ErroResponse> response, HttpStatus statusEsperado, String erroEsperado, String mensagemEsperada) {
+        assertEquals(statusEsperado, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals(400, response.getBody().status());
+        assertEquals(statusEsperado.value(), response.getBody().status());
         assertEquals(erroEsperado, response.getBody().erro());
         assertEquals(mensagemEsperada, response.getBody().mensagem());
         assertNotNull(response.getBody().timestamp());

@@ -213,6 +213,26 @@ class ContaCorrenteServiceTest {
         assertFalse(contaCorrenteService.existeContaEmpresa());
     }
 
+        @Test
+        void deveCriarContaParaClienteComSaldoInicialETipoCorretos() {
+                ContaCorrente conta = contaCorrenteService.criarContaPara(TipoTitularConta.CLIENTE);
+
+                assertNotNull(conta);
+                assertEquals(TipoTitularConta.CLIENTE, conta.getTipoTitular());
+                assertNotNull(conta.getNumeroConta());
+                assertEquals(0, BigDecimal.ZERO.compareTo(conta.getSaldo()));
+        }
+
+        @Test
+        void deveCriarContaParaEmpresaComSaldoInicialETipoCorretos() {
+                ContaCorrente conta = contaCorrenteService.criarContaPara(TipoTitularConta.EMPRESA);
+
+                assertNotNull(conta);
+                assertEquals(TipoTitularConta.EMPRESA, conta.getTipoTitular());
+                assertNotNull(conta.getNumeroConta());
+                assertEquals(0, BigDecimal.ZERO.compareTo(conta.getSaldo()));
+        }
+
     @Test
     void deveTransferirComSucesso() {
         contaCorrenteService.transferir(

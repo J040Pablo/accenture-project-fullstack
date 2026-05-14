@@ -6,7 +6,7 @@ import com.accenture.loja.cliente.mapper.ClienteMapper;
 import com.accenture.loja.cliente.model.Cliente;
 import com.accenture.loja.cliente.repository.ClienteRepository;
 import com.accenture.loja.conta.model.ContaCorrente;
-import com.accenture.loja.conta.repository.ContaCorrenteRepository;
+import com.accenture.loja.conta.service.ContaCorrenteService;
 import com.accenture.loja.endereco.dto.ViaCepResponseDTO;
 import com.accenture.loja.endereco.model.Endereco;
 import com.accenture.loja.endereco.service.ViaCepService;
@@ -15,18 +15,16 @@ import com.accenture.loja.shared.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
 public class ClienteService {
 
     private final ClienteRepository clienteRepository;
-    private final ContaCorrenteRepository contaCorrenteRepository;
     private final ViaCepService viaCepService;
     private final ClienteMapper clienteMapper;
+    private final ContaCorrenteService contaCorrenteService;
 
     public ClienteResponseDTO criarCliente(ClienteRequestDTO dto) {
 
@@ -44,7 +42,8 @@ public class ClienteService {
 
         Endereco endereco = criarEndereco(dto, viaCep);
 
-        ContaCorrente contaCorrente = criarContaCorrente();
+        ContaCorrente contaCorrente =
+                contaCorrenteService.criarContaPara(TipoTitularConta.CLIENTE);
 
         Cliente cliente = Cliente.builder()
                 .nome(dto.getNome())
@@ -60,7 +59,6 @@ public class ClienteService {
     }
 
     public List<ClienteResponseDTO> listarClientes() {
-
         return clienteRepository.findAll()
                 .stream()
                 .map(clienteMapper::toResponseDTO)
@@ -68,7 +66,6 @@ public class ClienteService {
     }
 
     public ClienteResponseDTO buscarPorId(Long id) {
-
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() ->
                         new BusinessException("Cliente não encontrado"));
@@ -76,22 +73,46 @@ public class ClienteService {
         return clienteMapper.toResponseDTO(cliente);
     }
 
-    public ClienteResponseDTO atualizarCliente(
-            Long id,
-            ClienteRequestDTO dto
-    ) {
+    public ClienteResponseDTO atualizarCliente(Long id, ClienteRequestDTO dto) {
+
+        validarDadosCliente(dto);
 
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() ->
                         new BusinessException("Cliente não encontrado"));
 
-        validarEmailAtualizacao(dto.getEmail(), id);
+        validarCpfNaAtualizacao(dto.getCpf(), id);
 
-        validarCpfAtualizacao(dto.getCpf(), id);
+        validarEmailNaAtualizacao(dto.getEmail(), id);
+
+        String cep = dto.getEndereco().getCep();
+
+        validarCep(cep);
+
+        ViaCepResponseDTO viaCep = viaCepService.buscarCep(cep);
+
+        if (viaCep == null || viaCep.getCep() == null) {
+            throw new BusinessException("CEP não encontrado");
+        }
 
         cliente.setNome(dto.getNome());
         cliente.setCpf(dto.getCpf());
         cliente.setEmail(dto.getEmail());
+
+        Endereco endereco = cliente.getEndereco();
+
+        if (endereco == null) {
+            endereco = new Endereco();
+            cliente.setEndereco(endereco);
+        }
+
+        endereco.setCep(viaCep.getCep());
+        endereco.setRua(viaCep.getLogradouro());
+        endereco.setBairro(viaCep.getBairro());
+        endereco.setCidade(viaCep.getLocalidade());
+        endereco.setUf(viaCep.getUf());
+        endereco.setNumero(dto.getEndereco().getNumero());
+        endereco.setComplemento(dto.getEndereco().getComplemento());
 
         Cliente atualizado = clienteRepository.save(cliente);
 
@@ -99,7 +120,6 @@ public class ClienteService {
     }
 
     public void deletarCliente(Long id) {
-
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() ->
                         new BusinessException("Cliente não encontrado"));
@@ -132,7 +152,6 @@ public class ClienteService {
     }
 
     private void validarCpf(String cpf) {
-
         clienteRepository.findByCpf(cpf)
                 .ifPresent(cliente -> {
                     throw new BusinessException("CPF já cadastrado");
@@ -140,43 +159,22 @@ public class ClienteService {
     }
 
     private void validarEmail(String email) {
-
         clienteRepository.findByEmail(email)
                 .ifPresent(cliente -> {
                     throw new BusinessException("Email já cadastrado");
                 });
     }
 
-    private void validarCpfAtualizacao(
-            String cpf,
-            Long idCliente
-    ) {
-
-        clienteRepository.findByCpf(cpf)
-                .ifPresent(cliente -> {
-
-                    if (!cliente.getId().equals(idCliente)) {
-                        throw new BusinessException(
-                                "CPF já cadastrado"
-                        );
-                    }
-                });
+    private void validarCpfNaAtualizacao(String cpf, Long id) {
+        if (clienteRepository.existsByCpfAndIdNot(cpf, id)) {
+            throw new BusinessException("CPF já cadastrado para outro cliente");
+        }
     }
 
-    private void validarEmailAtualizacao(
-            String email,
-            Long idCliente
-    ) {
-
-        clienteRepository.findByEmail(email)
-                .ifPresent(cliente -> {
-
-                    if (!cliente.getId().equals(idCliente)) {
-                        throw new BusinessException(
-                                "Email já cadastrado"
-                        );
-                    }
-                });
+    private void validarEmailNaAtualizacao(String email, Long id) {
+        if (clienteRepository.existsByEmailAndIdNot(email, id)) {
+            throw new BusinessException("Email já cadastrado para outro cliente");
+        }
     }
 
     private Endereco criarEndereco(
@@ -197,33 +195,5 @@ public class ClienteService {
                 .numero(dto.getEndereco().getNumero())
                 .complemento(dto.getEndereco().getComplemento())
                 .build();
-    }
-
-    private ContaCorrente criarContaCorrente() {
-
-        return ContaCorrente.builder()
-                .numeroConta(gerarNumeroConta())
-                .saldo(BigDecimal.ZERO)
-                .tipoTitular(TipoTitularConta.CLIENTE)
-                .build();
-    }
-
-    private String gerarNumeroConta() {
-
-        String numeroConta;
-
-        do {
-
-            numeroConta = String.valueOf(
-                    ThreadLocalRandom.current()
-                            .nextInt(10000, 100000)
-            );
-
-        } while (
-                contaCorrenteRepository
-                        .existsByNumeroConta(numeroConta)
-        );
-
-        return numeroConta;
     }
 }

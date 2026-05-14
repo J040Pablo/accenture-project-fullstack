@@ -36,10 +36,9 @@ public class ClienteController {
 
     @PutMapping("/{id}")
     public ClienteResponseDTO atualizar(
-            @PathVariable Long id,
-            @RequestBody ClienteRequestDTO dto
+        @PathVariable Long id,
+        @RequestBody @Valid ClienteRequestDTO dto
     ) {
-
         return clienteService.atualizarCliente(id, dto);
     }
 
