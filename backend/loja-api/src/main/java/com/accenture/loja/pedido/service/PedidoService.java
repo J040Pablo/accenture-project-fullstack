@@ -222,4 +222,15 @@ public class PedidoService {
         movimentacaoContaService.registrar(contaCliente, TipoMovimentacao.ESTORNO_CLIENTE, valorPedido, pedido);
         movimentacaoContaService.registrar(contaEmpresa, TipoMovimentacao.ESTORNO_EMPRESA, valorPedido, pedido);
     }
+
+    public void deletarPedido(Long id) {
+        Pedido pedido = pedidoRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Pedido não encontrado. ID: " + id));
+
+        if (pedido.getStatus() == StatusPedido.PAGO) {
+            throw new RuntimeException("Não é possível deletar um pedido pago");
+        }
+        pedidoRepository.delete(pedido);
+    }
 }
