@@ -6,6 +6,7 @@ import com.accenture.loja.cliente.mapper.ClienteMapper;
 import com.accenture.loja.cliente.model.Cliente;
 import com.accenture.loja.cliente.repository.ClienteRepository;
 import com.accenture.loja.conta.model.ContaCorrente;
+import com.accenture.loja.conta.service.ContaCorrenteService;
 import com.accenture.loja.endereco.dto.EnderecoRequestDTO;
 import com.accenture.loja.endereco.dto.ViaCepResponseDTO;
 import com.accenture.loja.endereco.model.Endereco;
@@ -39,6 +40,9 @@ class ClienteServiceTest {
 
     @Mock
     private ClienteMapper clienteMapper;
+
+        @Mock
+        private ContaCorrenteService contaCorrenteService;
 
     @InjectMocks
     private ClienteService service;
@@ -117,6 +121,14 @@ class ClienteServiceTest {
         when(viaCepService.buscarCep(any()))
                 .thenReturn(viaCepResponse);
 
+        when(contaCorrenteService.criarContaPara(any()))
+                .thenAnswer(invocation -> ContaCorrente.builder()
+                        .id(1L)
+                        .numeroConta("12345")
+                        .saldo(BigDecimal.ZERO)
+                        .tipoTitular(invocation.getArgument(0))
+                        .build());
+
         when(clienteRepository.save(any()))
                 .thenReturn(cliente);
 
@@ -142,6 +154,8 @@ class ClienteServiceTest {
                         clienteSalvo.getContaCorrente().getTipoTitular()
                 )
         );
+
+        verify(contaCorrenteService).criarContaPara(TipoTitularConta.CLIENTE);
     }
 
     @Test

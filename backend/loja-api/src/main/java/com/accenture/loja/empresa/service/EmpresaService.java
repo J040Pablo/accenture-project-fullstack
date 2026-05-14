@@ -12,9 +12,7 @@ import com.accenture.loja.shared.exception.RegraNegocioException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Random;
 
 @Service
 public class EmpresaService {
@@ -55,11 +53,7 @@ public class EmpresaService {
                 request.telefone()
         );
 
-        ContaCorrente conta = ContaCorrente.builder()
-                .numeroConta(gerarNumeroConta())
-                .saldo(BigDecimal.ZERO)
-                .tipoTitular(TipoTitularConta.EMPRESA)
-                .build();
+        ContaCorrente conta = contaCorrenteService.criarContaPara(TipoTitularConta.EMPRESA);
 
         empresa.setContaCorrente(conta);
 
@@ -82,8 +76,4 @@ public class EmpresaService {
         return empresaMapper.toResponse(empresa);
     }
 
-    private String gerarNumeroConta() {
-        Random random = new Random();
-        return String.valueOf(10000 + random.nextInt(90000));
-    }
 }

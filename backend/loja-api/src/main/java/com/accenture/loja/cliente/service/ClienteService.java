@@ -5,19 +5,18 @@ import com.accenture.loja.cliente.dto.ClienteResponseDTO;
 import com.accenture.loja.cliente.model.Cliente;
 import com.accenture.loja.cliente.repository.ClienteRepository;
 import com.accenture.loja.cliente.mapper.ClienteMapper;
+import com.accenture.loja.conta.service.ContaCorrenteService;
 import com.accenture.loja.conta.model.ContaCorrente;
 import com.accenture.loja.endereco.dto.ViaCepResponseDTO;
 import com.accenture.loja.endereco.model.Endereco;
 import com.accenture.loja.endereco.service.ViaCepService;
 import com.accenture.loja.shared.exception.BusinessException;
+import com.accenture.loja.shared.enums.TipoTitularConta;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Random;
-import com.accenture.loja.shared.enums.TipoTitularConta;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +25,7 @@ public class ClienteService {
     private final ClienteRepository clienteRepository;
     private final ViaCepService viaCepService;
     private final ClienteMapper clienteMapper;
+    private final ContaCorrenteService contaCorrenteService;
 
     public ClienteResponseDTO criarCliente(ClienteRequestDTO dto) {
         validarCpf(dto.getCpf());
@@ -51,11 +51,7 @@ public class ClienteService {
                 .complemento(dto.getEndereco().getComplemento())
                 .build();
 
-        ContaCorrente contaCorrente = ContaCorrente.builder()
-            .numeroConta(gerarNumeroConta())
-            .saldo(BigDecimal.ZERO)
-            .tipoTitular(TipoTitularConta.CLIENTE)
-            .build();
+        ContaCorrente contaCorrente = contaCorrenteService.criarContaPara(TipoTitularConta.CLIENTE);
 
         Cliente cliente = Cliente.builder()
                 .nome(dto.getNome())
@@ -136,13 +132,4 @@ public class ClienteService {
                 });
     }
 
-    private String gerarNumeroConta() {
-
-        Random random = new Random();
-
-        return String.valueOf(10000 + random.nextInt(90000));
-    }
-
-     
-   
 }

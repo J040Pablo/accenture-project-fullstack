@@ -12,11 +12,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Random;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ContaCorrenteService {
+
+    private static final Random RANDOM = new Random();
 
     private final ContaCorrenteRepository contaCorrenteRepository;
     private final ContaCorrenteMapper contaCorrenteMapper;
@@ -56,6 +59,14 @@ public class ContaCorrenteService {
                 .isEmpty();
     }
 
+    public ContaCorrente criarContaPara(TipoTitularConta tipoTitular) {
+        return ContaCorrente.builder()
+                .numeroConta(gerarNumeroConta())
+                .saldo(BigDecimal.ZERO)
+                .tipoTitular(tipoTitular)
+                .build();
+    }
+
     @Transactional
     public void transferir(ContaCorrente origem, ContaCorrente destino, BigDecimal valor) {
         if (origem == null) {
@@ -79,5 +90,9 @@ public class ContaCorrenteService {
 
     public ContaCorrente salvar(ContaCorrente conta) {
         return contaCorrenteRepository.save(conta);
+    }
+
+    private String gerarNumeroConta() {
+        return String.valueOf(10000 + RANDOM.nextInt(90000));
     }
 }

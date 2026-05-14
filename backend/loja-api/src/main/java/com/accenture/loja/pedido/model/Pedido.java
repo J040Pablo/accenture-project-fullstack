@@ -37,13 +37,16 @@ public class Pedido {
 
     private String motivoCancelamento;
 
-    @Column(nullable = false)
-    private BigDecimal desconto = BigDecimal.ZERO;
+   @Column(nullable = false)
+@Builder.Default
+private BigDecimal desconto = BigDecimal.ZERO;
 
     @Column(nullable = false)
+    @Builder.Default
     private BigDecimal totalBruto = BigDecimal.ZERO;
 
     @Column(nullable = false)
+    @Builder.Default
     private BigDecimal totalFinal = BigDecimal.ZERO;
 
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
