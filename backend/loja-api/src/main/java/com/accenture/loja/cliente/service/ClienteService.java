@@ -2,17 +2,16 @@ package com.accenture.loja.cliente.service;
 
 import com.accenture.loja.cliente.dto.ClienteRequestDTO;
 import com.accenture.loja.cliente.dto.ClienteResponseDTO;
+import com.accenture.loja.cliente.mapper.ClienteMapper;
 import com.accenture.loja.cliente.model.Cliente;
 import com.accenture.loja.cliente.repository.ClienteRepository;
-import com.accenture.loja.cliente.mapper.ClienteMapper;
-import com.accenture.loja.conta.service.ContaCorrenteService;
 import com.accenture.loja.conta.model.ContaCorrente;
+import com.accenture.loja.conta.service.ContaCorrenteService;
 import com.accenture.loja.endereco.dto.ViaCepResponseDTO;
 import com.accenture.loja.endereco.model.Endereco;
 import com.accenture.loja.endereco.service.ViaCepService;
-import com.accenture.loja.shared.exception.BusinessException;
 import com.accenture.loja.shared.enums.TipoTitularConta;
-
+import com.accenture.loja.shared.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -65,9 +64,70 @@ public class ClienteService {
 
         return clienteMapper.toResponseDTO(clienteSalvo);
     }
-    
-    private void validarCep(String cep) {
 
+    public List<ClienteResponseDTO> listarClientes() {
+        return clienteRepository.findAll()
+                .stream()
+                .map(clienteMapper::toResponseDTO)
+                .toList();
+    }
+
+    public ClienteResponseDTO buscarPorId(Long id) {
+        Cliente cliente = clienteRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Cliente não encontrado"));
+
+        return clienteMapper.toResponseDTO(cliente);
+    }
+
+    public ClienteResponseDTO atualizarCliente(Long id, ClienteRequestDTO dto) {
+        Cliente cliente = clienteRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Cliente não encontrado"));
+
+        validarCpfNaAtualizacao(dto.getCpf(), id);
+        validarEmailNaAtualizacao(dto.getEmail(), id);
+
+        String cep = dto.getEndereco().getCep();
+
+        validarCep(cep);
+
+        ViaCepResponseDTO viaCep = viaCepService.buscarCep(cep);
+
+        if (viaCep == null || viaCep.getCep() == null) {
+            throw new BusinessException("CEP não encontrado");
+        }
+
+        cliente.setNome(dto.getNome());
+        cliente.setCpf(dto.getCpf());
+        cliente.setEmail(dto.getEmail());
+
+        Endereco endereco = cliente.getEndereco();
+
+        if (endereco == null) {
+            endereco = new Endereco();
+            cliente.setEndereco(endereco);
+        }
+
+        endereco.setCep(viaCep.getCep());
+        endereco.setRua(viaCep.getLogradouro());
+        endereco.setBairro(viaCep.getBairro());
+        endereco.setCidade(viaCep.getLocalidade());
+        endereco.setUf(viaCep.getUf());
+        endereco.setNumero(dto.getEndereco().getNumero());
+        endereco.setComplemento(dto.getEndereco().getComplemento());
+
+        Cliente atualizado = clienteRepository.save(cliente);
+
+        return clienteMapper.toResponseDTO(atualizado);
+    }
+
+    public void deletarCliente(Long id) {
+        Cliente cliente = clienteRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Cliente não encontrado"));
+
+        clienteRepository.delete(cliente);
+    }
+
+    private void validarCep(String cep) {
         if (cep == null || cep.isBlank()) {
             throw new BusinessException("CEP é obrigatório");
         }
@@ -79,45 +139,7 @@ public class ClienteService {
         }
     }
 
-    public List<ClienteResponseDTO> listarClientes() {
-
-        return clienteRepository.findAll()
-                .stream()
-                .map(clienteMapper::toResponseDTO)
-                .toList();
-    }
-
-    public ClienteResponseDTO buscarPorId(Long id) {
-
-        Cliente cliente = clienteRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("Cliente não encontrado"));
-
-        return  clienteMapper.toResponseDTO(cliente);
-    }
-
-    public ClienteResponseDTO atualizarCliente(Long id, ClienteRequestDTO dto) {
-
-        Cliente cliente = clienteRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("Cliente não encontrado"));
-
-        cliente.setNome(dto.getNome());
-        cliente.setEmail(dto.getEmail());
-
-        Cliente atualizado = clienteRepository.save(cliente);
-
-        return  clienteMapper.toResponseDTO(atualizado);
-    }
-
-    public void deletarCliente(Long id) {
-
-        Cliente cliente = clienteRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("Cliente não encontrado"));
-
-        clienteRepository.delete(cliente);
-    }
-
     private void validarCpf(String cpf) {
-
         clienteRepository.findByCpf(cpf)
                 .ifPresent(cliente -> {
                     throw new BusinessException("CPF já cadastrado");
@@ -125,11 +147,21 @@ public class ClienteService {
     }
 
     private void validarEmail(String email) {
-
         clienteRepository.findByEmail(email)
                 .ifPresent(cliente -> {
                     throw new BusinessException("Email já cadastrado");
                 });
     }
 
+    private void validarCpfNaAtualizacao(String cpf, Long id) {
+        if (clienteRepository.existsByCpfAndIdNot(cpf, id)) {
+            throw new BusinessException("CPF já cadastrado para outro cliente");
+        }
+    }
+
+    private void validarEmailNaAtualizacao(String email, Long id) {
+        if (clienteRepository.existsByEmailAndIdNot(email, id)) {
+            throw new BusinessException("Email já cadastrado para outro cliente");
+        }
+    }
 }
