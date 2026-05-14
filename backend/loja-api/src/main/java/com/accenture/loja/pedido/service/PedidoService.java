@@ -226,10 +226,10 @@ public class PedidoService {
     public void deletarPedido(Long id) {
         Pedido pedido = pedidoRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Pedido não encontrado. ID: " + id));
+                        new RuntimeException("Pedido não encontrado."));
 
-        if (pedido.getStatus() == StatusPedido.PAGO) {
-            throw new RuntimeException("Não é possível deletar um pedido pago");
+        if (pedido.getStatus() == StatusPedido.PAGO || pedido.getStatus() == StatusPedido.CANCELADO) {
+            throw new RuntimeException("Não é possível deletar um pedido que gerou movimentações financeiras");
         }
         pedidoRepository.delete(pedido);
     }

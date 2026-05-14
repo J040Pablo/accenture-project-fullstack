@@ -417,4 +417,69 @@ class PedidoServiceTest {
         assertThrows(RegraNegocioException.class,
                 () -> service.cancelarPedido(1L, "teste"));
     }
+
+    @Test
+    void deletarPedido_comSucesso() {
+        pedido.setStatus(StatusPedido.CRIADO);
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        assertDoesNotThrow(() -> service.deletarPedido(1L));
+
+        verify(pedidoRepository, times(1)).delete(pedido);
+    }
+
+    @Test
+    void deletarPedido_pago_lancaExcecao() {
+        pedido.setStatus(StatusPedido.PAGO);
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> service.deletarPedido(1L));
+
+        assertEquals("Não é possível deletar um pedido pago", exception.getMessage());
+        verify(pedidoRepository, never()).delete(any());
+    }
+
+    @Test
+    void deletarPedido_naoEncontrado_lancaExcecao() {
+        when(pedidoRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> service.deletarPedido(99L));
+        verify(pedidoRepository, never()).delete(any());
+    }
+
+    @Test
+    void testFluxoCompleto_PedidoSucesso() {
+        ItemPedidoRequestDTO itemDto = new ItemPedidoRequestDTO();
+        itemDto.setProdutoId(1L);
+        itemDto.setQuantidade(2);
+        CriarPedidoRequestDTO request = new CriarPedidoRequestDTO();
+        request.setClienteId(1L);
+        request.setItens(List.of(itemDto));
+
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
+        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        Pedido pedidoCriado = service.criarPedido(request);
+        assertEquals(StatusPedido.CRIADO, pedidoCriado.getStatus());
+
+        ItemPedido item = new ItemPedido();
+        item.setProduto(produto);
+        item.setQuantidade(2);
+        pedidoCriado.setItens(List.of(item));
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedidoCriado));
+        Pedido pedidoReservado = service.reservarPedido(1L);
+        assertEquals(StatusPedido.RESERVADO, pedidoReservado.getStatus());
+
+        when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
+        Pedido pedidoPago = service.pagarPedido(1L);
+        assertEquals(StatusPedido.PAGO, pedidoPago.getStatus());
+        verify(contaCorrenteService).transferir(any(), any(), any());
+
+        Pedido pedidoCancelado = service.cancelarPedido(1L, "Cancelamento do fluxo");
+        assertEquals(StatusPedido.CANCELADO, pedidoCancelado.getStatus());
+        verify(contaCorrenteService, times(2)).transferir(any(), any(), any());
+    }
 }

@@ -140,4 +140,10 @@ class PedidoControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void deletarPedido_retornaOk() throws Exception {
+        mockMvc.perform(delete("/api/pedidos/1"))
+                .andExpect(status().isNoContent()); // Verifica se retorna 204
+    }
 }

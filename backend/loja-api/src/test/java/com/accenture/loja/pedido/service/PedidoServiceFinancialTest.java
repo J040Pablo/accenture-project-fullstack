@@ -169,7 +169,7 @@ class PedidoServiceFinancialTest {
     }
 
     @Test
-    void testPagarPedido_SaldoInsuficiente() {
+    void testPagarPedido_SaldoInsuficiente() { //aq
         contaCliente.setSaldo(new BigDecimal("100.00"));
 
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
@@ -219,6 +219,26 @@ class PedidoServiceFinancialTest {
 
         verify(contaCorrenteService, never()).transferir(any(), any(), any());
         verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void testPagarPedido_SemReserva_LancaExcecao() {
+        // Cenário: Pedido está com status CRIADO, mas o pagamento exige RESERVADO
+        pedido.setStatus(StatusPedido.CRIADO);
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        assertThrows(RegraNegocioException.class, () -> service.pagarPedido(1L));
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
+    }
+
+    @Test
+    void testPagarPedido_Duplicado_LancaExcecao() {
+        // Cenário: Tentar pagar um pedido que já está PAGO
+        pedido.setStatus(StatusPedido.PAGO);
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        assertThrows(RegraNegocioException.class, () -> service.pagarPedido(1L));
+        verify(contaCorrenteService, never()).transferir(any(), any(), any());
     }
 
     @Test
@@ -389,5 +409,15 @@ class PedidoServiceFinancialTest {
 
         verify(contaCorrenteService, never()).transferir(any(), any(), any());
         verify(movimentacaoContaService, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void testCancelarPedido_Duplicado_LancaExcecao() {
+        // Cenário: Tentar cancelar um pedido que já está CANCELADO
+        pedido.setStatus(StatusPedido.CANCELADO);
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        assertThrows(RegraNegocioException.class, () -> service.cancelarPedido(1L, "Motivo"));
+        verify(pedidoRepository, times(0)).save(any());
     }
 }
