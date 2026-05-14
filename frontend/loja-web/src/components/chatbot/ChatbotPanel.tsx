@@ -120,7 +120,7 @@ export const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ isOpen, onClose, mes
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Digite sua mensagem..."
-            className="flex-1 bg-[#161616] text-white border border-[#2a2a2a] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#a100ff] focus:ring-1 focus:ring-[#a100ff] transition-all placeholder:text-gray-600"
+            className="flex-1 bg-[#161616] text-white border border-[#2a2a2a] rounded-xl px-4 py-3 text-sm outline-none focus:outline-none focus:ring-0 focus:border-[#a100ff] transition-colors duration-200 placeholder:text-gray-600"
           />
           <button
             type="submit"

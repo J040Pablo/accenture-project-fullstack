@@ -20,6 +20,10 @@ import {
   Wallet
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { PageLayout } from '../../components/ui/PageLayout';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { PageToolbar } from '../../components/ui/PageToolbar';
+import { PrimaryActionButton } from '../../components/ui/PrimaryActionButton';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,6 +148,12 @@ const statusStyles: Record<PedidoStatus, string> = {
   CANCELADO: 'bg-[#2a1118] text-[#d6a2b0] border-[#5a1f35]/40',
   FALHOU: 'bg-[#1a1024] text-[#c4b5fd] border-[#5b21b6]/30'
 };
+
+const inputClassName =
+  'w-full bg-[#151515] border border-[#2a2a2a] rounded-xl px-4 text-sm text-white placeholder-slate-500 outline-none focus:outline-none focus:ring-0 focus:border-[#a100ff] transition-colors duration-200';
+
+const searchInputClassName =
+  'w-full h-12 bg-[#151515] border border-[#2a2a2a] rounded-full px-5 pr-14 text-slate-200 placeholder-slate-500 outline-none focus:outline-none focus:ring-0 focus:border-[#a100ff] transition-colors duration-200';
 
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -274,59 +284,46 @@ export default function PedidosList() {
   };
 
   const renderListView = () => (
-    <div className="space-y-8 max-w-6xl mx-auto">
-      
-      {/* 1. Header Premium */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-[#0b0b0b] border border-[#2a2a2a] flex items-center justify-center text-[#a100ff]">
-              <ShoppingCart className="w-5 h-5" />
-            </div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">Pedidos</h1>
-          </div>
-          <p className="text-slate-400 text-sm">Gerencie o fluxo de reserva, pagamento e cancelamento</p>
-        </div>
+    <PageLayout>
+      <PageHeader
+        title="Pedidos"
+        subtitle="Gerencie o fluxo de reserva, pagamento e cancelamento"
+        icon={<ShoppingCart className="w-5 h-5" />}
+        action={
+          <PrimaryActionButton onClick={startCreateFlow}>
+            <Plus className="w-5 h-5" />
+            Criar pedido
+          </PrimaryActionButton>
+        }
+      />
 
-        <Button
-          onClick={startCreateFlow}
-          className="bg-[#a100ff] hover:bg-[#b833ff] text-white shadow-lg shadow-[#a100ff]/10 gap-2 rounded-xl h-11 px-6 font-bold transition-all"
-        >
-          <Plus className="w-5 h-5" />
-          Criar pedido
-        </Button>
-      </div>
-
-      {/* 2. Barra de Busca e Filtro */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Buscar por cliente ou número do pedido"
-            value={searchTerm}
-            onChange={event => setSearchTerm(event.target.value)}
-            className="w-full h-12 bg-[#0b0b0b] rounded-2xl px-5 pr-14 text-slate-200 placeholder-slate-600 border border-[#2a2a2a] focus:border-[#a100ff]/50 focus:outline-none focus:ring-1 focus:ring-[#a100ff]/20 transition-all"
-          />
+      <PageToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Buscar por cliente ou número do pedido"
+        inputClassName={searchInputClassName}
+        searchAction={
           <button className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center text-slate-500 hover:text-[#a100ff] transition-colors">
             <Search className="w-5 h-5" />
           </button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#0b0b0b] border border-[#2a2a2a] rounded-2xl">
-          {statusOptions.map(status => (
-            <button
-              key={status}
-              onClick={() => setExpandedStatus(status)}
-              className={`px-4 h-9 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${expandedStatus === status
-                  ? 'bg-[#a100ff] text-white shadow-inner'
-                  : 'text-slate-500 hover:bg-[#151515] hover:text-slate-300'
-                }`}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
-      </div>
+        }
+        rightContent={
+          <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#111111] border border-[#2a2a2a] rounded-xl">
+            {statusOptions.map(status => (
+              <button
+                key={status}
+                onClick={() => setExpandedStatus(status)}
+                className={`px-4 h-9 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${expandedStatus === status
+                    ? 'bg-[#a100ff] text-white shadow-inner'
+                    : 'text-slate-500 hover:bg-[#151515] hover:text-slate-300'
+                  }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {/* 3. Tabela de Pedidos */}
       <div className="rounded-2xl overflow-hidden bg-[#0b0b0b] border border-[#2a2a2a]">
@@ -444,12 +441,12 @@ export default function PedidosList() {
           </table>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 
   const renderCreateView = () => {
     return (
-      <div className="space-y-8 max-w-6xl mx-auto pb-20">
+      <PageLayout>
         
         {/* Back and Breadcrumb */}
         <div className="flex items-center gap-4">
@@ -514,7 +511,7 @@ export default function PedidosList() {
                         value={clienteSearch}
                         onChange={event => setClienteSearch(event.target.value)}
                         placeholder="Nome, CPF ou telefone do cliente..."
-                        className="w-full h-12 bg-[#0b0b0b] rounded-xl px-5 text-sm text-slate-200 placeholder-slate-700 border border-[#2a2a2a] focus:border-[#a100ff]/50 focus:outline-none transition-all"
+                        className={`${inputClassName} h-12 px-5`}
                       />
                     </div>
 
@@ -594,7 +591,7 @@ export default function PedidosList() {
                         value={productSearch}
                         onChange={event => setProductSearch(event.target.value)}
                         placeholder="Nome ou SKU..."
-                        className="w-full h-11 bg-[#0b0b0b] rounded-xl px-4 text-sm text-slate-200 placeholder-slate-700 border border-[#2a2a2a] focus:border-[#a100ff]/50 focus:outline-none transition-all"
+                        className={`${inputClassName} h-11`}
                       />
                     </div>
 
@@ -766,7 +763,7 @@ export default function PedidosList() {
             </div>
           </div>
         </div>
-      </div>
+      </PageLayout>
     );
   };
 
@@ -776,7 +773,7 @@ export default function PedidosList() {
     const isPago = selectedPedido.status === 'PAGO';
 
     return (
-      <div className="space-y-8 max-w-6xl mx-auto pb-20 animate-in fade-in duration-700">
+      <PageLayout className="animate-in fade-in duration-700">
         
         {/* Detail Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -962,17 +959,15 @@ export default function PedidosList() {
               {selectedPedido.status === 'FALHOU' && 'PRÓXIMO: Notificar suporte técnico.'}
            </div>
         </div>
-      </div>
+      </PageLayout>
     );
   };
 
   return (
-    <div className="min-h-screen bg-black text-slate-100 font-sans antialiased">
-      <div className="py-8 px-4 sm:px-6">
-        {screen === 'list' && renderListView()}
-        {screen === 'create' && renderCreateView()}
-        {screen === 'detail' && renderDetailView()}
-      </div>
+    <div className="text-slate-100 font-sans antialiased">
+      {screen === 'list' && renderListView()}
+      {screen === 'create' && renderCreateView()}
+      {screen === 'detail' && renderDetailView()}
     </div>
   );
 }

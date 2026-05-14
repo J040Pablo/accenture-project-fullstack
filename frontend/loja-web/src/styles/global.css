@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --layout-max-width: 1280px;
+  --page-padding-x: clamp(1rem, 2.4vw, 3rem);
+  --page-padding-y: clamp(1.25rem, 2.2vw, 2rem);
+  --section-gap: 1.5rem;
+  --section-gap-sm: 0.75rem;
+  --card-gap: 1rem;
+  --card-padding: 1.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
 @layer base {
   body {
     @apply bg-black text-slate-100 font-sans antialiased;
@@ -11,6 +23,44 @@
 @layer utilities {
   .flex-center {
     @apply flex items-center justify-center;
+  }
+}
+
+@layer components {
+  .app-main-shell {
+    @apply flex-1 overflow-y-auto;
+  }
+
+  .app-page-container {
+    width: min(100%, var(--layout-max-width));
+    margin-inline: auto;
+    padding: var(--page-padding-y) var(--page-padding-x);
+  }
+
+  .page-layout {
+    @apply flex flex-col;
+    gap: var(--section-gap);
+    padding-bottom: var(--page-padding-y);
+  }
+
+  .page-header {
+    @apply flex flex-col md:flex-row md:items-center justify-between gap-6;
+    min-height: 72px;
+  }
+
+  .page-header-icon {
+    @apply w-10 h-10 flex items-center justify-center rounded-xl border border-[#2a2a2a] bg-[#0b0b0b] text-[#a100ff];
+  }
+
+  .page-toolbar {
+    @apply rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] p-2 flex flex-col lg:flex-row lg:items-center gap-2;
+    margin-top: var(--section-gap-sm);
+    margin-bottom: var(--section-gap);
+  }
+
+  /* ensure header + toolbar stack consistently when used together */
+  .page-header + .page-toolbar {
+    margin-top: calc(var(--section-gap-sm) * 0.5);
   }
 }
 

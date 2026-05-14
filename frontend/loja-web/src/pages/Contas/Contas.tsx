@@ -5,18 +5,18 @@ import {
   Banknote,
   Building2,
   CreditCard,
-  Filter,
   HandCoins,
   Landmark,
   Minus,
   Plus,
-  Search,
   Sparkles,
   User,
   Wallet,
   ReceiptText
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { PageLayout } from '../../components/ui/PageLayout';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -226,7 +226,6 @@ const accountTypeStyles: Record<AccountType, string> = {
 export default function Contas() {
   const [view, setView] = useState<AccountView>('overview');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('empresa');
-  const [search, setSearch] = useState('');
 
   const selectedAccount = useMemo(() => {
     if (selectedAccountId === 'empresa') {
@@ -238,10 +237,7 @@ export default function Contas() {
 
   const movements = movementsByAccount[selectedAccount.id] ?? [];
 
-  const filteredCustomerAccounts = customerAccounts.filter(account =>
-    account.titular.toLowerCase().includes(search.toLowerCase()) ||
-    account.numeroConta.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredCustomerAccounts = customerAccounts;
 
   const openAccountDetail = (accountId: string) => {
     setSelectedAccountId(accountId);
@@ -261,25 +257,18 @@ export default function Contas() {
   );
 
   const renderOverview = () => (
-    <div className="space-y-8 max-w-6xl mx-auto pb-20">
-      
-      {/* 1. Header Premium */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-[#0b0b0b] border border-[#2a2a2a] flex items-center justify-center text-[#a100ff]">
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">Contas</h1>
+    <PageLayout>
+      <PageHeader
+        title="Contas"
+        subtitle="Visão geral das contas da empresa e dos clientes"
+        icon={<CreditCard className="w-5 h-5" />}
+        action={
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-[#0b0b0b] border border-[#2a2a2a] rounded-xl">
+            <Sparkles className="w-4 h-4 text-[#a100ff]" />
+            <span className="text-xs font-bold text-slate-300 uppercase tracking-widest leading-none">Saldo consolidado e extratos</span>
           </div>
-          <p className="text-slate-400 text-sm">Visão geral das contas da empresa e dos clientes</p>
-        </div>
-
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-[#0b0b0b] border border-[#2a2a2a] rounded-2xl">
-          <Sparkles className="w-4 h-4 text-[#a100ff]" />
-          <span className="text-xs font-bold text-slate-300 uppercase tracking-widest leading-none">Saldo consolidado e extratos</span>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -382,21 +371,8 @@ export default function Contas() {
             <p className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-widest">Controle de saldos e transações dos clientes</p>
           </div>
 
-          <div className="flex items-center gap-4">
-             <div className="relative">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={event => setSearch(event.target.value)}
-                  placeholder="Titular ou Nº..."
-                  className="w-full h-11 bg-[#111111] rounded-xl px-4 pr-12 text-sm text-slate-200 placeholder-slate-700 border border-[#2a2a2a] focus:border-[#a100ff]/50 focus:outline-none transition-all"
-                />
-                <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
-             </div>
-             <div className="flex items-center gap-2 px-4 h-11 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 text-[11px] font-bold uppercase tracking-widest">
-               <Filter className="w-3.5 h-3.5" />
-               {customerAccounts.length} CONTAS
-             </div>
+          <div className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">
+            {filteredCustomerAccounts.length} resultados
           </div>
         </div>
 
@@ -447,11 +423,11 @@ export default function Contas() {
           </table>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 
   const renderDetail = () => (
-    <div className="space-y-8 max-w-6xl mx-auto pb-20 animate-in fade-in duration-700">
+    <PageLayout className="animate-in fade-in duration-700">
       
       {/* Detail Breadcrumb */}
       <div className="flex items-center gap-4">
@@ -602,14 +578,12 @@ export default function Contas() {
           </div>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 
   return (
-    <div className="min-h-screen bg-black text-slate-100 font-sans antialiased">
-       <div className="py-8 px-4 sm:px-6">
-          {view === 'overview' ? renderOverview() : renderDetail()}
-       </div>
+    <div className="text-slate-100 font-sans antialiased">
+      {view === 'overview' ? renderOverview() : renderDetail()}
     </div>
   );
 }

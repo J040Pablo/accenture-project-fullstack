@@ -1,7 +1,5 @@
-import React from 'react';
 import {
     Wallet,
-    ShoppingCart,
     XCircle,
     PackageX,
     Users,

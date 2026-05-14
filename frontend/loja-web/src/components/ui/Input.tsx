@@ -18,7 +18,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <input
           type={type}
           className={cn(
-            "flex h-10 w-full rounded-lg border border-transparent bg-[#1e1e1e] px-4 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-[#a100ff] disabled:cursor-not-allowed disabled:opacity-50 transition-colors",
+            "w-full bg-[#151515] border border-[#2a2a2a] h-11 rounded-xl px-4 text-sm text-white placeholder-slate-500 outline-none focus:outline-none focus:ring-0 focus:border-[#a100ff] transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50",
             error && "border-status-error",
             className
           )}

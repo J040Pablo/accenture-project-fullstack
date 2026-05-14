@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -9,7 +10,6 @@ import {
   Package,
   Plus,
   RefreshCcw,
-  Search,
   TrendingUp,
   Users,
   Wallet,
@@ -17,6 +17,10 @@ import {
 } from 'lucide-react';
 import { RevenueChartCard } from '../../components/dashboard/RevenueChartCard';
 import { RiskAnalysisCard } from '../../components/dashboard/RiskAnalysisCard';
+import { PageLayout } from '../../components/ui/PageLayout';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { PageToolbar } from '../../components/ui/PageToolbar';
+import { PrimaryActionButton } from '../../components/ui/PrimaryActionButton';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -85,12 +89,21 @@ const riskText: Record<RiskLevel, string> = {
 
 function DashboardHeader() {
   return (
-    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+    <div className="space-y-3">
+      <PageHeader
+        title="Dashboard"
+        subtitle="Visão geral da operação do e-commerce"
+        icon={<Activity className="w-5 h-5" />}
+        action={
+          <PrimaryActionButton>
+            <Plus className="w-4 h-4" />
+            Novo Pedido
+          </PrimaryActionButton>
+        }
+      />
 
-      {/* Left: title + status badges */}
+      {/* status badges */}
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
-        <p className="text-sm text-slate-400">Visão geral da operação do e-commerce</p>
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#2a2a2a] bg-[#0f0f0f] text-xs text-slate-400">
             {/* Tiny green dot is acceptable — it's semantic and very small */}
@@ -102,22 +115,6 @@ function DashboardHeader() {
             Atualizado agora
           </span>
         </div>
-      </div>
-
-      {/* Right: search + CTA */}
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Pesquisar no sistema"
-            className="pl-9 pr-4 h-10 w-52 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] text-sm text-slate-300 placeholder-slate-700 focus:outline-none focus:border-[#a100ff]/50 transition-colors"
-          />
-        </div>
-        <button className="inline-flex items-center gap-2 h-10 px-5 rounded-xl bg-[#a100ff] hover:bg-[#b833ff] text-white text-sm font-semibold transition-colors">
-          <Plus className="w-4 h-4" />
-          Novo Pedido
-        </button>
       </div>
     </div>
   );
@@ -357,14 +354,20 @@ function LowStockProducts() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const [searchTerm, setSearchTerm] = useState('');
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-10">
+    <PageLayout className="space-y-6">
 
       {/* 1. Header */}
       <DashboardHeader />
 
-      {/* 2. Quick actions */}
-      <QuickActions />
+      <PageToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Pesquisar no sistema"
+        rightContent={<QuickActions />}
+      />
 
       {/* 3. Metric cards — 2 cols on mobile, 4 on desktop */}
       <MetricCards />
@@ -384,6 +387,6 @@ export default function Dashboard() {
         <LowStockProducts />
       </div>
 
-    </div>
+    </PageLayout>
   );
 }
