@@ -257,18 +257,24 @@ class PedidoServiceTest {
 
     @Test
     void cancelarPedido_statusReservado_devolveEstoque() {
+        // cenário: produto com estoque inicial 5, item com quantidade 3
+        produto.setEstoque(5);
         pedido.setStatus(StatusPedido.RESERVADO);
         ItemPedido item = new ItemPedido();
         item.setProduto(produto);
-        item.setQuantidade(2);
+        item.setQuantidade(3);
         pedido.getItens().add(item);
 
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
-        when(pedidoRepository.save(any())).thenReturn(pedido);
+        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArguments()[0]);
 
         Pedido resultado = service.cancelarPedido(1L, "Produto errado");
+
         assertEquals(StatusPedido.CANCELADO, resultado.getStatus());
+        // estoque inicial 5 + 3 devolvidos = 8
+        assertEquals(8, produto.getEstoque());
         verify(produtoRepository).save(produto);
+        verify(pedidoRepository).save(pedido);
     }
 
     @Test
@@ -433,18 +439,27 @@ class PedidoServiceTest {
         pedido.setStatus(StatusPedido.PAGO);
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
 
-        RuntimeException exception = assertThrows(RuntimeException.class,
+        RegraNegocioException exception = assertThrows(RegraNegocioException.class,
                 () -> service.deletarPedido(1L));
 
-        assertEquals("Não é possível deletar um pedido pago", exception.getMessage());
+        assertEquals("Não é possível deletar um pedido que gerou movimentações financeiras", exception.getMessage());
+        verify(pedidoRepository, never()).delete(any());
+    }
+
+    @Test
+    void deletarPedido_cancelado_lancaExcecao() {
+        pedido.setStatus(StatusPedido.CANCELADO);
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        assertThrows(RegraNegocioException.class, () -> service.deletarPedido(1L));
         verify(pedidoRepository, never()).delete(any());
     }
 
     @Test
     void deletarPedido_naoEncontrado_lancaExcecao() {
-        when(pedidoRepository.findById(99L)).thenReturn(Optional.empty());
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class, () -> service.deletarPedido(99L));
+        assertThrows(RegraNegocioException.class, () -> service.deletarPedido(1L));
         verify(pedidoRepository, never()).delete(any());
     }
 

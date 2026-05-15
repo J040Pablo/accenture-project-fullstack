@@ -224,13 +224,13 @@ public class PedidoService {
     }
 
     public void deletarPedido(Long id) {
-        Pedido pedido = pedidoRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Pedido não encontrado."));
+    Pedido pedido = pedidoRepository.findById(id)
+            .orElseThrow(() -> new RegraNegocioException("Pedido não encontrado."));
 
-        if (pedido.getStatus() == StatusPedido.PAGO || pedido.getStatus() == StatusPedido.CANCELADO) {
-            throw new RuntimeException("Não é possível deletar um pedido que gerou movimentações financeiras");
-        }
-        pedidoRepository.delete(pedido);
+    if (pedido.getStatus() == StatusPedido.PAGO || pedido.getStatus() == StatusPedido.CANCELADO) {
+        throw new RegraNegocioException("Não é possível deletar um pedido que gerou movimentações financeiras");
     }
+
+    pedidoRepository.delete(pedido);
+}
 }

@@ -57,6 +57,15 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(ServiceUnavailableException.class)
+    public ResponseEntity<ErroResponse> tratarServiceUnavailable(ServiceUnavailableException ex) {
+        return criarRespostaErro(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Serviço indisponível",
+                ex.getMessage()
+        );
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErroResponse> tratarValidacao(MethodArgumentNotValidException ex) {
         String mensagem = ex.getBindingResult()
@@ -98,22 +107,5 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(status).body(resposta);
-    }
-    
-    @ExceptionHandler(ServiceUnavailableException.class)
-    public ResponseEntity<ErroResponse> tratarServiceUnavailable(
-            ServiceUnavailableException ex
-    ) {
-
-        HttpStatus status = HttpStatus.SERVICE_UNAVAILABLE;
-
-        ErroResponse erro = new ErroResponse(
-                LocalDateTime.now(),
-                status.value(),
-                "Serviço indisponível",
-                ex.getMessage()
-        );
-
-        return ResponseEntity.status(status).body(erro);
     }
 }
