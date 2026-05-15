@@ -6,6 +6,7 @@ import {
   Package,
   ShoppingCart,
   CreditCard,
+  ShieldCheck,
   FileText,
   User
 } from 'lucide-react';
@@ -18,6 +19,7 @@ const navItems = [
   { name: 'Produtos', path: '/produtos', icon: Package },
   { name: 'Pedidos', path: '/pedidos', icon: ShoppingCart },
   { name: 'Contas', path: '/contas', icon: CreditCard },
+  { name: 'Análise de Risco', path: '/analise-risco', icon: ShieldCheck },
   { name: 'Relatórios', path: '/relatorios', icon: FileText },
 ];
 

@@ -468,14 +468,7 @@ const ProdutosList: FC = () => {
                 <Box className="w-10 h-10" />
              </div>
              <h3 className="text-white font-black text-xl mb-2">Sem resultados de catálogo</h3>
-             <p className="text-slate-500 text-sm max-w-xs leading-relaxed">Não localizamos nenhum produto com os critérios "{searchTerm || statusFilter}".</p>
-             
-             <Button 
-                onClick={limparFiltros} 
-                className="mt-8 bg-[#111111] border border-[#a100ff]/30 text-[#d8b4fe] hover:bg-[#a100ff]/10 hover:border-[#a100ff]/50 px-8 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
-             >
-                Resetar Filtros
-             </Button>
+             <p className="text-slate-500 text-sm max-w-xs leading-relaxed">Tente ajustar sua busca ou filtros.</p>
           </div>
         )}
       </div>

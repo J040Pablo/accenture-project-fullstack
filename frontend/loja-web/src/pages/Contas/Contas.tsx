@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -224,6 +225,7 @@ const accountTypeStyles: Record<AccountType, string> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Contas() {
+  const navigate = useNavigate();
   const [view, setView] = useState<AccountView>('overview');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('empresa');
 
@@ -309,16 +311,16 @@ export default function Contas() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button className="flex-1 sm:flex-initial h-12 px-6 rounded-xl bg-[#111111] border border-[#a100ff]/30 text-[#d8b4fe] font-bold hover:bg-[#a100ff]/10 hover:border-[#a100ff]/50 transition-all">
+            <Button className="flex-1 sm:flex-initial h-12 px-6 rounded-xl bg-[#111111] hover:bg-[#161616] text-slate-300 hover:text-white border border-[#2a2a2a] hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors font-bold">
               <Plus className="w-4 h-4 mr-2" />
               Depositar
             </Button>
-            <Button className="flex-1 sm:flex-initial h-12 px-6 rounded-xl bg-[#111111] border border-[#5a1f35]/40 text-[#d6a2b0] font-bold hover:bg-[#2a1118] hover:border-[#5a1f35]/60 transition-all">
+            <Button className="flex-1 sm:flex-initial h-12 px-6 rounded-xl bg-[#111111] hover:bg-[#161616] text-[#d6a2b0] hover:text-[#f0c2cf] border border-[#5a1f35]/40 hover:border-[#5a1f35]/70 outline-none focus:outline-none focus:ring-0 transition-colors font-bold">
               <Minus className="w-4 h-4 mr-2" />
               Sacar
             </Button>
             <div className="flex-1 sm:flex-initial sm:ml-auto">
-              <Button onClick={() => openAccountDetail('empresa')} className="w-full sm:w-auto h-12 px-8 rounded-xl bg-[#a100ff] text-white font-black hover:bg-[#b833ff] shadow-lg shadow-[#a100ff]/20 transition-all">
+              <Button onClick={() => openAccountDetail('empresa')} className="w-full sm:w-auto h-12 px-8 rounded-xl bg-[#a100ff] hover:bg-[#b933ff] text-white border border-[#a100ff] outline-none focus:outline-none focus:ring-0 transition-colors font-black">
                 Ver detalhes
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -408,12 +410,9 @@ export default function Contas() {
                     <div className="flex items-center gap-2 justify-end">
                       <Button
                         onClick={() => openAccountDetail(account.id)}
-                        className="bg-[#a100ff] text-white hover:bg-[#b833ff] rounded-lg h-8 px-4 text-[11px] font-bold transition-all shadow-lg shadow-[#a100ff]/10"
+                        className="bg-[#a100ff] hover:bg-[#b933ff] text-white border border-[#a100ff] rounded-xl h-8 px-4 text-[11px] font-bold outline-none focus:outline-none focus:ring-0 transition-colors"
                       >
                         DETALHES
-                      </Button>
-                      <Button className="bg-[#111111] border border-[#2a2a2a] text-slate-400 hover:text-white hover:bg-[#151515] rounded-lg h-8 px-4 text-[11px] font-bold transition-all">
-                        PEDIDO
                       </Button>
                     </div>
                   </td>
@@ -433,7 +432,7 @@ export default function Contas() {
       <div className="flex items-center gap-4">
         <button 
           onClick={() => setView('overview')} 
-          className="w-11 h-11 rounded-xl bg-[#0b0b0b] border border-[#2a2a2a] flex items-center justify-center text-slate-400 hover:text-white hover:border-[#a100ff]/40 transition-all shadow-xl"
+          className="w-11 h-11 rounded-xl bg-[#0b0b0b] border border-[#2a2a2a] flex items-center justify-center text-slate-400 hover:text-white hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -520,9 +519,15 @@ export default function Contas() {
                         <td className="p-5 text-xs text-slate-300 font-medium leading-relaxed group-hover:text-white transition-colors">{movimentacao.descricao}</td>
                         <td className="p-5 font-bold text-white tracking-tight">{movimentacao.valor}</td>
                         <td className="p-5 text-right px-8">
-                          <Button className="bg-[#111111] border border-[#2a2a2a] text-slate-400 hover:text-[#a100ff] hover:border-[#a100ff]/30 rounded-lg h-8 px-3 text-[10px] font-bold transition-all transition-all">
-                             VER PEDIDO
-                          </Button>
+                          {movimentacao.pedidoRelacionado !== '-' && (
+                            <Button
+                              type="button"
+                              onClick={() => navigate('/pedidos')}
+                              className="bg-[#151515] hover:bg-[#1a1a1a] text-[#d8b4fe] hover:text-white border border-[#a100ff]/20 hover:border-[#a100ff]/50 rounded-xl h-9 px-4 text-xs outline-none focus:outline-none focus:ring-0 transition-colors"
+                            >
+                              Ver pedido relacionado
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -539,17 +544,21 @@ export default function Contas() {
                    <HandCoins className="w-4 h-4 text-[#a100ff]/60" />
                 </h3>
                 <div className="flex flex-col gap-3">
-                  <Button className="w-full h-12 px-6 rounded-xl bg-[#111111] border border-[#a100ff]/30 text-[#d8b4fe] font-bold hover:bg-[#a100ff]/10 hover:border-[#a100ff]/50 transition-all justify-start">
+                  <Button className="w-full h-12 px-6 rounded-xl bg-[#111111] hover:bg-[#161616] text-[#d8b4fe] hover:text-white border border-[#a100ff]/20 hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors justify-start">
                     <Plus className="w-4 h-4 mr-3" />
                     Depositar Fundos
                   </Button>
-                  <Button className="w-full h-12 px-6 rounded-xl bg-[#111111] border border-[#5a1f35]/40 text-[#d6a2b0] font-bold hover:bg-[#2a1118] hover:border-[#5a1f35]/60 transition-all justify-start">
+                  <Button className="w-full h-12 px-6 rounded-xl bg-[#111111] hover:bg-[#161616] text-[#d6a2b0] hover:text-[#f0c2cf] border border-[#5a1f35]/40 hover:border-[#5a1f35]/70 outline-none focus:outline-none focus:ring-0 transition-colors justify-start">
                     <Minus className="w-4 h-4 mr-3" />
                     Solicitar Saque
                   </Button>
-                  <Button className="w-full h-12 px-6 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 font-bold hover:bg-[#151515] hover:text-white transition-all justify-start">
+                  <Button
+                    type="button"
+                    onClick={() => navigate('/pedidos')}
+                    className="w-full h-12 px-6 rounded-xl bg-[#111111] hover:bg-[#161616] text-slate-300 hover:text-white border border-[#2a2a2a] hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors justify-start"
+                  >
                     <ReceiptText className="w-4 h-4 mr-3" />
-                    Pedido Relacionado
+                    Ver pedido relacionado
                   </Button>
                 </div>
               </div>

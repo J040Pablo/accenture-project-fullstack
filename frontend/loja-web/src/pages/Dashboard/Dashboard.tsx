@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Activity,
   AlertTriangle,
@@ -98,13 +99,15 @@ const riskText: Record<RiskLevel, string> = {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function DashboardHeader() {
+  const navigate = useNavigate();
+
   return (
     <PageHeader
       title="Dashboard"
       subtitle="Visão geral da operação do e-commerce"
       icon={<Activity className="w-5 h-5" />}
       action={
-        <PrimaryActionButton>
+        <PrimaryActionButton onClick={() => navigate('/pedidos')}>
           <Plus className="w-4 h-4" />
           Novo Pedido
         </PrimaryActionButton>
@@ -129,11 +132,12 @@ function StatusBadges() {
 }
 
 function QuickActions() {
+  const navigate = useNavigate();
   const actions = [
-    { label: 'Novo Cliente', icon: Users    },
-    { label: 'Novo Produto', icon: Package  },
-    { label: 'Novo Pedido',  icon: Plus     },
-    { label: 'Ver Estoque',  icon: Activity },
+    { label: 'Novo Cliente', icon: Users, path: '/clientes' },
+    { label: 'Novo Produto', icon: Package, path: '/produtos' },
+    { label: 'Novo Pedido', icon: Plus, path: '/pedidos' },
+    { label: 'Ver Estoque', icon: Activity, path: '/produtos' },
   ];
   return (
     <div className="flex flex-wrap gap-2">
@@ -142,6 +146,8 @@ function QuickActions() {
         return (
           <button
             key={a.label}
+            type="button"
+            onClick={() => navigate(a.path)}
             className="inline-flex items-center gap-2 px-4 h-9 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] text-sm text-slate-400 hover:border-[#a100ff]/30 hover:text-[#d8b4fe] hover:bg-[#111111] transition-all duration-150"
           >
             <Icon className="w-3.5 h-3.5 text-[#a100ff]/60" />
@@ -191,7 +197,7 @@ function MetricCards() {
               </div>
             </div>
 
-            <p className="text-2xl font-bold text-white tracking-tight mb-1 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-[#a100ff] transition-all">
+            <p className="text-2xl font-bold text-[#f8f5ff] tracking-tight mb-1">
               {m.value}
             </p>
             <p className="text-[11px] text-slate-600 font-medium">{m.description}</p>
@@ -210,6 +216,8 @@ function MetricCards() {
 }
 
 function LatestOrders({ className }: { className?: string }) {
+  const navigate = useNavigate();
+
   return (
     <Card className={cn("overflow-hidden flex flex-col", className)}>
       {/* Header */}
@@ -221,7 +229,11 @@ function LatestOrders({ className }: { className?: string }) {
             <span className="w-1.5 h-1.5 rounded-full bg-[#a100ff] animate-pulse" />
           </h2>
         </div>
-        <button className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-tighter text-[#a100ff] hover:text-white transition-colors group/link">
+        <button
+          type="button"
+          onClick={() => navigate('/pedidos')}
+          className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-tighter text-[#a100ff] hover:text-white transition-colors group/link"
+        >
           Ver todos <ArrowRight className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform" />
         </button>
       </div>
@@ -272,6 +284,8 @@ function LatestOrders({ className }: { className?: string }) {
 }
 
 function FinancialMovements() {
+  const navigate = useNavigate();
+
   return (
     <Card className="overflow-hidden flex flex-col">
       {/* Header */}
@@ -308,7 +322,11 @@ function FinancialMovements() {
 
       {/* Footer link */}
       <div className="px-6 py-3.5 border-t border-[#1a1a1a] bg-[#0d0d0d]">
-        <button className="w-full flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:text-[#a100ff] transition-all group/footer">
+        <button
+          type="button"
+          onClick={() => navigate('/contas')}
+          className="w-full flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:text-[#a100ff] transition-all group/footer"
+        >
           Ver fluxo completo <ArrowRight className="w-3.5 h-3.5 group-hover/footer:translate-x-1 transition-transform" />
         </button>
       </div>
@@ -317,6 +335,8 @@ function FinancialMovements() {
 }
 
 function LowStockProducts() {
+  const navigate = useNavigate();
+
   return (
     <Card className="overflow-hidden flex flex-col">
       {/* Header */}
@@ -356,7 +376,11 @@ function LowStockProducts() {
 
       {/* Footer link */}
       <div className="px-6 py-3.5 border-t border-[#1a1a1a] bg-[#0d0d0d]">
-        <button className="w-full flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:text-rose-400 transition-all group/footer">
+        <button
+          type="button"
+          onClick={() => navigate('/produtos')}
+          className="w-full flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:text-rose-400 transition-all group/footer"
+        >
           Ver catálogo completo <ArrowRight className="w-3.5 h-3.5 group-hover/footer:translate-x-1 transition-transform" />
         </button>
       </div>
@@ -367,6 +391,7 @@ function LowStockProducts() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
 
   return (
@@ -387,6 +412,26 @@ export default function Dashboard() {
 
       {/* 3. Metric cards — 2 cols on mobile, 4 on desktop */}
       <MetricCards />
+
+      <div className="flex items-center justify-between gap-4 mt-2">
+        <div>
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-0.5">
+            Análise operacional
+          </p>
+          <h2 className="text-sm font-bold text-white tracking-tight">
+            Resumo de risco dos pedidos
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate('/analise-risco')}
+          className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-[#d8b4fe] transition-colors group/footer"
+        >
+          Ver análise completa
+          <ArrowRight className="w-3.5 h-3.5 group-hover/footer:translate-x-1 transition-transform" />
+        </button>
+      </div>
 
       {/* 4. Orders table (2/3) + Risk card (1/3) */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">

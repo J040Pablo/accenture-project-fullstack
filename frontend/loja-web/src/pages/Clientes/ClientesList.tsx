@@ -295,12 +295,12 @@ export default function ClientesList() {
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <Button
               onClick={() => isCreate && setShowCreateForm(false)}
-              className="flex-1 sm:flex-initial h-11 px-8 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 font-bold hover:text-white transition-all text-xs"
+              className="flex-1 sm:flex-initial h-11 px-8 rounded-xl bg-[#111111] hover:bg-[#161616] text-slate-300 hover:text-white border border-[#2a2a2a] hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors text-xs"
             >
               CANCELAR
             </Button>
 
-            <Button className="flex-1 sm:flex-initial h-11 px-10 rounded-xl bg-[#a100ff] text-white font-black hover:bg-[#b833ff] shadow-lg shadow-[#a100ff]/20 transition-all text-xs">
+            <Button className="flex-1 sm:flex-initial h-11 px-10 rounded-xl bg-[#a100ff] hover:bg-[#b933ff] text-white border border-[#a100ff] font-black outline-none focus:outline-none focus:ring-0 transition-colors text-xs">
               {isCreate ? 'FINALIZAR CADASTRO' : 'SALVAR ALTERAÇÕES'}
             </Button>
           </div>
@@ -552,14 +552,7 @@ export default function ClientesList() {
                 <Search className="w-10 h-10" />
              </div>
              <h3 className="text-white font-black text-xl mb-2">Nenhum cliente encontrado</h3>
-             <p className="text-slate-500 text-sm max-w-xs leading-relaxed">Não localizamos nenhum registro correspondente ao termo "{searchTerm}".</p>
-             
-             <Button 
-                onClick={() => setSearchTerm('')} 
-                className="mt-8 bg-[#111111] border border-[#a100ff]/30 text-[#d8b4fe] hover:bg-[#a100ff]/10 hover:border-[#a100ff]/50 px-8 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
-             >
-                Limpar Busca
-             </Button>
+             <p className="text-slate-500 text-sm max-w-xs leading-relaxed">Tente ajustar sua busca.</p>
           </div>
         )}
       </div>
