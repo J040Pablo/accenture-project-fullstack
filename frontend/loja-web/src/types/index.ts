@@ -7,14 +7,7 @@ export interface Cliente {
   status: 'ATIVO' | 'INATIVO';
 }
 
-export interface Produto {
-  id: number;
-  nome: string;
-  descricao: string;
-  preco: number;
-  estoque: number;
-  categoria: string;
-}
+export type { Produto } from './Produto';
 
 export interface Pedido {
   id: number;

@@ -24,6 +24,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -127,12 +128,40 @@ class ProdutoControllerTest {
     }
 
     @Test
-    void deveInativarProdutoERetornarNoContent() throws Exception {
+    void deveExcluirProdutoERetornarNoContent() throws Exception {
         mockMvc.perform(delete(BASE_URL + "/{id}", 1L))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
 
-        verify(produtoService).inativar(1L);
+        verify(produtoService).deletarProduto(1L);
+    }
+
+    @Test
+    void deveAtivarProdutoERetornarOk() throws Exception {
+        ProdutoResponseDTO response = new ProdutoResponseDTO(1L, "SKU-001", "Notebook", "Eletrônicos", new BigDecimal("3000.00"), 10, true);
+
+        when(produtoService.ativarProduto(1L)).thenReturn(response);
+
+        mockMvc.perform(patch(BASE_URL + "/{id}/ativar", 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.ativo").value(true));
+
+        verify(produtoService).ativarProduto(1L);
+    }
+
+    @Test
+    void deveInativarProdutoERetornarOk() throws Exception {
+        ProdutoResponseDTO response = new ProdutoResponseDTO(1L, "SKU-001", "Notebook", "Eletrônicos", new BigDecimal("3000.00"), 10, false);
+
+        when(produtoService.inativarProduto(1L)).thenReturn(response);
+
+        mockMvc.perform(patch(BASE_URL + "/{id}/inativar", 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.ativo").value(false));
+
+        verify(produtoService).inativarProduto(1L);
     }
 
     @Test

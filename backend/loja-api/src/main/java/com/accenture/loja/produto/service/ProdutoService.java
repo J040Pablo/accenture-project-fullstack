@@ -5,6 +5,7 @@ import com.accenture.loja.produto.dto.ProdutoResponseDTO;
 import com.accenture.loja.produto.model.Produto;
 import com.accenture.loja.produto.repository.ProdutoRepository;
 import com.accenture.loja.shared.exception.BusinessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -71,9 +72,31 @@ public class ProdutoService {
     }
 
     @Transactional
-    public void inativar(Long id) {
+    public ProdutoResponseDTO ativarProduto(Long id) {
+        Produto produto = buscarProdutoPorId(id);
+        produto.setAtivo(true);
+        return toResponseDTO(produtoRepository.save(produto));
+    }
+
+    @Transactional
+    public ProdutoResponseDTO inativarProduto(Long id) {
         Produto produto = buscarProdutoPorId(id);
         produto.setAtivo(false);
+        return toResponseDTO(produtoRepository.save(produto));
+    }
+
+    @Transactional
+    public void deletarProduto(Long id) {
+        Produto produto = buscarProdutoPorId(id);
+
+        try {
+            produtoRepository.delete(produto);
+            produtoRepository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(
+                    "Produto não pode ser excluído pois possui vínculo com pedidos. Inative o produto em vez de excluir."
+            );
+        }
     }
 
     @Transactional

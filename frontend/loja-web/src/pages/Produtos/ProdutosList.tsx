@@ -1,4 +1,5 @@
-import { useMemo, useState, type FC } from 'react';
+import { useEffect, useMemo, useState, type FC } from 'react';
+import { toast } from 'react-toastify';
 import {
   Barcode,
   Box,
@@ -6,7 +7,6 @@ import {
   ChevronUp,
   Plus,
   Package,
-  Trash2,
   X,
   DollarSign,
   Layers,
@@ -19,82 +19,319 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { PageToolbar } from '../../components/ui/PageToolbar';
 import { PrimaryActionButton } from '../../components/ui/PrimaryActionButton';
 import { FilterDropdown, FilterGroup, FilterOption } from '../../components/ui/FilterDropdown';
+import {
+  listarProdutos,
+  cadastrarProduto,
+  atualizarProduto,
+  excluirProduto,
+  ativarProduto,
+  inativarProduto,
+  type ProdutoPayload
+} from '../../services/produtoService';
+import type { Produto } from '../../types/Produto';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const currencyFormatter = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL'
+});
 
-interface ProdutoMock {
-  id: string;
-  nome: string;
-  sku: string;
-  categoria: string;
-  preco: string;
-  estoque: string;
-  ativo: boolean;
-}
+const formatarPreco = (preco: number) => currencyFormatter.format(preco);
+const formatarEstoque = (estoque: number) => `${estoque} unidade${estoque === 1 ? '' : 's'}`;
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const mockProdutos: ProdutoMock[] = [
-  {
-    id: '1',
-    nome: 'Batata',
-    sku: 'BAT-001',
-    categoria: 'Hortifruti',
-    preco: 'R$ 8,90',
-    estoque: '120 unidades',
-    ativo: true
-  },
-  {
-    id: '2',
-    nome: 'Arroz 5kg',
-    sku: 'ARR-050',
-    categoria: 'Mercearia',
-    preco: 'R$ 32,50',
-    estoque: '48 unidades',
-    ativo: true
-  },
-  {
-    id: '3',
-    nome: 'Coca cola 2L',
-    sku: 'REF-220',
-    categoria: 'Bebidas',
-    preco: 'R$ 9,99',
-    estoque: '85 unidades',
-    ativo: false
-  }
-];
+const produtoInicial: ProdutoPayload = {
+  sku: '',
+  nome: '',
+  categoria: '',
+  preco: 0,
+  estoque: 0
+};
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
 
 const inputClassName =
   'w-full bg-[#151515] border border-[#2a2a2a] h-11 rounded-xl px-4 text-sm text-white placeholder-slate-500 outline-none focus:outline-none focus:ring-0 focus:border-[#a100ff] transition-colors duration-200';
+// ─── SKU Helpers ──────────────────────────────────────────────────────────────
 
+function extrairPartesSku(valor: string): { letras: string; numeros: string } {
+  const limpo = valor.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  const letras = limpo.replace(/[^A-Z]/g, '').slice(0, 3);
+  const numeros = limpo.replace(/\D/g, '').slice(0, 6);
+
+  return { letras, numeros };
+}
+
+function formatarSkuDuranteDigitacao(valor: string): string {
+  const { letras, numeros } = extrairPartesSku(valor);
+
+  if (!letras && !numeros) return '';
+
+  if (letras.length < 3) {
+    return letras;
+  }
+
+  return numeros ? `${letras}-${numeros}` : `${letras}-`;
+}
+
+function normalizarSku(valor: string): string {
+  const { letras, numeros } = extrairPartesSku(valor);
+
+  if (letras.length !== 3 || !numeros) return '';
+
+  return `${letras}-${numeros.padStart(6, '0')}`;
+}
+
+function validarSku(sku: string): boolean {
+  return /^[A-Z]{3}-\d{6}$/.test(sku);
+}
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const ProdutosList: FC = () => {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [formProduto, setFormProduto] = useState<ProdutoPayload>(produtoInicial);
+  const [produtoEditando, setProdutoEditando] = useState<Produto | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'todos' | 'ativos' | 'inativos'>('todos');
   const [stockFilter, setStockFilter] = useState<'todos' | 'pouco' | 'sem'>('todos');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
 
-  const categories = useMemo(() => Array.from(new Set(mockProdutos.map(p => p.categoria))), []);
+  async function carregarProdutos() {
+    try {
+      setLoading(true);
+      setErro(null);
 
-  const toggleExpand = (id: string) => {
-    setExpandedId(prev => (prev === id ? null : id));
-  };
+      const data = await listarProdutos();
+      setProdutos(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+      setErro('Erro ao carregar produtos.');
+      toast.error('Erro ao carregar produtos. Verifique se o backend está ativo.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void carregarProdutos();
+  }, []);
+
+  function handleChangeProduto(campo: keyof ProdutoPayload, valor: string) {
+    setFormProduto((prev) => {
+      if (campo === 'sku') {
+        return {
+          ...prev,
+          sku: formatarSkuDuranteDigitacao(valor)
+        };
+      }
+
+      return {
+        ...prev,
+        [campo]: campo === 'preco' || campo === 'estoque' ? Number(valor) : valor
+      };
+    });
+  }
+
+  function validarProduto(produto: ProdutoPayload): string | null {
+    if (!produto.nome.trim()) return 'Nome é obrigatório.';
+    const skuNormalizado = normalizarSku(produto.sku);
+    if (!skuNormalizado) return 'SKU deve seguir o padrão AAA-000000.';
+    if (!validarSku(skuNormalizado)) return 'SKU deve seguir o padrão AAA-000000.';
+    
+    if (!produto.categoria.trim()) return 'Categoria é obrigatória.';
+    if (produto.preco <= 0) return 'Preço deve ser maior que zero.';
+    if (produto.estoque < 0) return 'Estoque não pode ser negativo.';
+
+    return null;
+  }
+
+  function cancelarFormulario() {
+    setShowCreateForm(false);
+    setProdutoEditando(null);
+    setFormProduto(produtoInicial);
+    setExpandedId(null);
+  }
+
+  function iniciarEdicao(produto: Produto) {
+    setProdutoEditando(produto);
+    setFormProduto({
+      sku: produto.sku,
+      nome: produto.nome,
+      categoria: produto.categoria,
+      preco: produto.preco,
+      estoque: produto.estoque
+    });
+    setExpandedId(produto.id);
+    setShowCreateForm(false);
+  }
+
+  function handleToggleProduto(produto: Produto) {
+    const jaEstaExpandido = expandedId === produto.id;
+
+    if (jaEstaExpandido) {
+      setExpandedId(null);
+      setProdutoEditando(null);
+      setFormProduto(produtoInicial);
+      return;
+    }
+
+    iniciarEdicao(produto);
+  }
+
+  async function handleCadastrarProduto() {
+    try {
+      const erroValidacao = validarProduto(formProduto);
+
+      if (erroValidacao) {
+        toast.warning(erroValidacao);
+        return;
+      }
+
+      setSalvando(true);
+      setErro(null);
+
+      const payload: ProdutoPayload = {
+        ...formProduto,
+        sku: normalizarSku(formProduto.sku)
+      };
+
+      await cadastrarProduto(payload);
+      setFormProduto(produtoInicial);
+      setProdutoEditando(null);
+      setShowCreateForm(false);
+      toast.success('Produto cadastrado com sucesso.');
+      await carregarProdutos();
+        
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao cadastrar produto.');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function handleEditarProduto() {
+    if (!produtoEditando) return;
+
+    try {
+      const erroValidacao = validarProduto(formProduto);
+
+      if (erroValidacao) {
+        toast.warning(erroValidacao);
+        return;
+      }
+
+      setSalvando(true);
+      setErro(null);
+
+      const payload: ProdutoPayload = {
+        ...formProduto,
+        sku: normalizarSku(formProduto.sku)
+      };
+
+      await atualizarProduto(produtoEditando.id, payload);
+      setProdutoEditando(null);
+      setFormProduto(produtoInicial);
+      setExpandedId(null);
+      toast.success('Produto atualizado com sucesso.');
+      await carregarProdutos();
+        
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao atualizar produto.');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function handleAlterarStatusProduto(produto: Produto, ativo: boolean) {
+    const confirmar = window.confirm(
+      ativo
+        ? 'Tem certeza que deseja ativar este produto?'
+        : 'Tem certeza que deseja inativar este produto?'
+    );
+
+    if (!confirmar) return;
+
+    try {
+      setSalvando(true);
+      setErro(null);
+
+      if (ativo) {
+        await ativarProduto(produto.id);
+        toast.success('Produto ativado com sucesso.');
+      } else {
+        await inativarProduto(produto.id);
+        toast.success('Produto inativado com sucesso.');
+      }
+
+      setProdutoEditando(null);
+      setExpandedId(null);
+      setFormProduto(produtoInicial);
+      await carregarProdutos();
+        
+    } catch (error) {
+      console.error(error);
+      toast.error(ativo ? 'Erro ao ativar produto.' : 'Erro ao inativar produto.');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function handleExcluirProduto(produto: Produto) {
+    const confirmar = window.confirm(
+      'Tem certeza que deseja excluir definitivamente este produto? Essa ação não poderá ser desfeita.'
+    );
+
+    if (!confirmar) return;
+
+    try {
+      setSalvando(true);
+      setErro(null);
+
+      await excluirProduto(produto.id);
+
+      setProdutoEditando(null);
+      setExpandedId(null);
+      setFormProduto(produtoInicial);
+
+      toast.success('Produto excluído com sucesso.');
+      await carregarProdutos();
+        
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao excluir produto. Se ele possuir vínculo com pedidos, inative em vez de excluir.');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const categories = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          produtos
+            .map((produto) => produto.categoria)
+            .filter((categoria): categoria is string => Boolean(categoria))
+        )
+      ),
+    [produtos]
+  );
 
   const produtosFiltrados = useMemo(() => {
     const termo = searchTerm.trim().toLowerCase();
 
-    return mockProdutos.filter(produto => {
+    return produtos.filter((produto) => {
       const correspondeBusca =
         produto.nome.toLowerCase().includes(termo) ||
         produto.sku.toLowerCase().includes(termo) ||
         produto.categoria.toLowerCase().includes(termo) ||
-        produto.preco.toLowerCase().includes(termo) ||
-        produto.estoque.toLowerCase().includes(termo) ||
+        formatarPreco(produto.preco).toLowerCase().includes(termo) ||
+        String(produto.estoque).toLowerCase().includes(termo) ||
         (produto.ativo ? 'ativo' : 'inativo').includes(termo);
 
       const correspondeStatus =
@@ -102,9 +339,7 @@ const ProdutosList: FC = () => {
         (statusFilter === 'ativos' && produto.ativo) ||
         (statusFilter === 'inativos' && !produto.ativo);
 
-      // parse numeric stock from produto.estoque (e.g., '120 unidades')
-      const stockMatch = produto.estoque.match(/(\d+)/);
-      const stockNum = stockMatch ? parseInt(stockMatch[1], 10) : 0;
+      const stockNum = produto.estoque ?? 0;
 
       const correspondeStock =
         stockFilter === 'todos' ||
@@ -115,7 +350,11 @@ const ProdutosList: FC = () => {
 
       return correspondeBusca && correspondeStatus && correspondeStock && correspondeCategoria;
     });
-  }, [searchTerm, statusFilter, stockFilter, categoryFilter]);
+  }, [searchTerm, statusFilter, stockFilter, categoryFilter, produtos]);
+
+  const produtosEstoqueBaixo = useMemo(() => {
+    return produtos.filter((produto) => produto.ativo && produto.estoque > 0 && produto.estoque <= 10);
+  }, [produtos]);
 
   const limparFiltros = () => {
     setSearchTerm('');
@@ -133,6 +372,7 @@ const ProdutosList: FC = () => {
 
   const renderProdutoForm = (mode: 'create' | 'edit') => {
     const isCreate = mode === 'create';
+    const isEdit = !isCreate;
 
     return (
       <div className={isCreate ? 'p-8' : 'p-8 bg-[#0b0b0b] border-t border-[#1a1a1a]'}>
@@ -154,15 +394,43 @@ const ProdutosList: FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2 space-y-1.5">
                    <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Nome do Produto</label>
-                   <input type="text" placeholder="Ex: Batata Lavada" className={inputClassName} />
+                   <input
+                     type="text"
+                     value={formProduto.nome}
+                     onChange={(e) => handleChangeProduto('nome', e.target.value)}
+                     placeholder="Ex: Batata Lavada"
+                     className={inputClassName}
+                   />
                 </div>
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">SKU do Produto</label>
-                   <input type="text" placeholder="PRO-0000" className={inputClassName} />
+                   <input
+                     type="text"
+                     value={formProduto.sku}
+                     onChange={(e) => handleChangeProduto('sku', e.target.value)}
+                     onBlur={(e) =>
+                       setFormProduto((prev) => ({
+                         ...prev,
+                         sku: normalizarSku(e.target.value)
+                       }))
+                     }
+                     placeholder="SKU-000001"
+                     maxLength={10}
+                     className={inputClassName}
+                   />
+                   <p className="text-[10px] text-slate-600 ml-1">
+                     Padrão: 3 letras + hífen + 6 números. Ex: SKU-000123.
+                   </p>
                 </div>
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Categoria</label>
-                   <input type="text" placeholder="Ex: Hortifruti" className={inputClassName} />
+                   <input
+                     type="text"
+                     value={formProduto.categoria}
+                     onChange={(e) => handleChangeProduto('categoria', e.target.value)}
+                     placeholder="Ex: Hortifruti"
+                     className={inputClassName}
+                   />
                 </div>
               </div>
             </section>
@@ -182,11 +450,27 @@ const ProdutosList: FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Preço de Venda (R$)</label>
-                   <input type="text" placeholder="0,00" className={inputClassName} />
+                   <input
+                     type="number"
+                     min="0"
+                     step="0.01"
+                     value={formProduto.preco}
+                     onChange={(e) => handleChangeProduto('preco', e.target.value)}
+                     placeholder="0,00"
+                     className={inputClassName}
+                   />
                 </div>
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Estoque Inicial</label>
-                   <input type="text" placeholder="Ex: 100 unidades" className={inputClassName} />
+                   <input
+                     type="number"
+                     min="0"
+                     step="1"
+                     value={formProduto.estoque}
+                     onChange={(e) => handleChangeProduto('estoque', e.target.value)}
+                     placeholder="Ex: 100 unidades"
+                     className={inputClassName}
+                   />
                 </div>
               </div>
             </section>
@@ -202,7 +486,7 @@ const ProdutosList: FC = () => {
                       <div className="text-[10px] text-slate-500 mb-1 font-bold uppercase">Status Operacional</div>
                       <div className="flex items-center gap-2">
                          <div className="w-2 h-2 rounded-full bg-[#a1ffdb]" />
-                         <span className="text-sm font-bold text-white">Disponível</span>
+                         <span className="text-sm font-bold text-white">{isCreate ? 'Novo produto' : produtoEditando?.ativo ? 'Disponível' : 'Inativo'}</span>
                       </div>
                    </div>
                    <div className="p-4 rounded-xl bg-[#111111] border border-[#1a1a1a]">
@@ -220,25 +504,58 @@ const ProdutosList: FC = () => {
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-12 pt-8 border-t border-[#1a1a1a]">
-          {!isCreate ? (
-            <Button className="w-full sm:w-auto h-11 px-8 rounded-xl bg-[#111111] border border-[#5a1f35]/40 text-[#d6a2b0] font-bold hover:bg-[#2a1118] hover:border-[#5a1f35]/60 transition-all uppercase tracking-tighter text-xs">
-              <Trash2 className="w-4 h-4 mr-2" />
-              Excluir Produto
-            </Button>
+          {isEdit && produtoEditando ? (
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              {produtoEditando.ativo ? (
+                <Button
+                  type="button"
+                  onClick={() => handleAlterarStatusProduto(produtoEditando, false)}
+                  disabled={salvando}
+                  className="w-full sm:w-auto h-11 px-8 rounded-xl bg-[#111111] border border-[#5a1f35]/40 text-[#d6a2b0] font-bold hover:bg-[#2a1118] hover:border-[#5a1f35]/60 transition-all uppercase tracking-tighter text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  INATIVAR PRODUTO
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => handleAlterarStatusProduto(produtoEditando, true)}
+                  disabled={salvando}
+                  className="w-full sm:w-auto h-11 px-8 rounded-xl bg-[#111111] border border-[#a100ff]/40 text-[#d8b4fe] font-bold hover:bg-[#1a1024] hover:border-[#a100ff]/60 transition-all uppercase tracking-tighter text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  ATIVAR PRODUTO
+                </Button>
+              )}
+
+              <Button
+                type="button"
+                onClick={() => handleExcluirProduto(produtoEditando)}
+                disabled={salvando}
+                className="w-full sm:w-auto h-11 px-8 rounded-xl bg-[#111111] border border-red-900/40 text-red-300 font-bold hover:bg-red-950/30 hover:border-red-800/60 transition-all uppercase tracking-tighter text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                EXCLUIR DEFINITIVAMENTE
+              </Button>
+            </div>
           ) : (
             <div className="text-xs text-slate-600 italic">Preencha os dados do dossiê técnico para registrar o novo item.</div>
           )}
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <Button
-              onClick={() => isCreate && setShowCreateForm(false)}
-              className="flex-1 sm:flex-initial h-11 px-8 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 font-bold hover:text-white transition-all text-xs"
+              type="button"
+              onClick={cancelarFormulario}
+              disabled={salvando}
+              className="flex-1 sm:flex-initial h-11 px-8 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 font-bold hover:text-white transition-all text-xs disabled:opacity-60 disabled:cursor-not-allowed"
             >
               CANCELAR
             </Button>
 
-            <Button className="flex-1 sm:flex-initial h-11 px-10 rounded-xl bg-[#a100ff] text-white font-black hover:bg-[#b833ff] shadow-lg shadow-[#a100ff]/20 transition-all text-xs">
-              {isCreate ? 'FINALIZAR REGISTRO' : 'SALVAR ALTERAÇÕES'}
+            <Button
+              type="button"
+              onClick={isCreate ? handleCadastrarProduto : handleEditarProduto}
+              disabled={salvando}
+              className="flex-1 sm:flex-initial h-11 px-10 rounded-xl bg-[#a100ff] text-white font-black hover:bg-[#b833ff] shadow-lg shadow-[#a100ff]/20 transition-all text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {salvando ? 'SALVANDO...' : isCreate ? 'FINALIZAR REGISTRO' : 'SALVAR ALTERAÇÕES'}
             </Button>
           </div>
         </div>
@@ -255,14 +572,22 @@ const ProdutosList: FC = () => {
         action={
           showCreateForm ? (
             <Button
-              onClick={() => setShowCreateForm(false)}
+              type="button"
+              onClick={cancelarFormulario}
               className="w-full md:w-auto h-11 px-6 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 font-black hover:text-white transition-all gap-2"
             >
               <X className="w-4 h-4" />
               FECHAR CADASTRO
             </Button>
           ) : (
-            <PrimaryActionButton onClick={() => setShowCreateForm(true)}>
+            <PrimaryActionButton
+              onClick={() => {
+                setProdutoEditando(null);
+                setExpandedId(null);
+                setFormProduto(produtoInicial);
+                setShowCreateForm(true);
+              }}
+            >
               <Plus className="w-4 h-4" />
               CADASTRAR PRODUTO
             </PrimaryActionButton>
@@ -277,7 +602,6 @@ const ProdutosList: FC = () => {
         rightContent={
           <div className="flex items-center gap-3">
             <FilterDropdown activeFiltersCount={activeFiltersCount}>
-              {/* Status Filter */}
               <FilterGroup title="Status">
                 {['Todos', 'Ativos', 'Inativos'].map((label) => {
                   const value = label.toLowerCase() as 'todos' | 'ativos' | 'inativos';
@@ -292,7 +616,6 @@ const ProdutosList: FC = () => {
                 })}
               </FilterGroup>
 
-              {/* Stock Filter */}
               <FilterGroup title="Estoque">
                 <FilterOption
                   label="Todos"
@@ -311,7 +634,6 @@ const ProdutosList: FC = () => {
                 />
               </FilterGroup>
 
-              {/* Category Filter */}
               <FilterGroup title="Categoria">
                 <select
                   value={categoryFilter}
@@ -327,9 +649,9 @@ const ProdutosList: FC = () => {
                 </select>
               </FilterGroup>
 
-              {/* Clear button */}
               <div className="border-t border-[#1a1a1a] pt-4 mt-4">
                 <button
+                  type="button"
                   onClick={limparFiltros}
                   className="w-full px-3 py-2 rounded-lg bg-[#111111] border border-[#2a2a2a] text-slate-400 hover:text-slate-200 text-xs font-semibold transition-all"
                 >
@@ -338,7 +660,6 @@ const ProdutosList: FC = () => {
               </div>
             </FilterDropdown>
 
-            {/* Counter */}
             <div className="flex items-center gap-2 px-4 h-12 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-500 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
               {produtosFiltrados.length} encontrados
             </div>
@@ -361,7 +682,8 @@ const ProdutosList: FC = () => {
             </div>
 
             <button
-              onClick={() => setShowCreateForm(false)}
+              type="button"
+              onClick={cancelarFormulario}
               className="w-9 h-9 rounded-full bg-[#111111] hover:bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-slate-500 hover:text-white transition-all shadow-inner"
             >
               <X className="w-4 h-4" />
@@ -373,22 +695,66 @@ const ProdutosList: FC = () => {
       )}
 
       {/* 4. List of Products */}
+      {produtosEstoqueBaixo.length > 0 && (
+        <div className="rounded-[24px] bg-[#0b0b0b] border border-amber-400/20 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-300">
+              <Package className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-white font-black text-lg">Produtos com estoque baixo</h3>
+              <p className="text-xs text-slate-500">Itens que merecem reposição imediata.</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {produtosEstoqueBaixo.map((produto) => (
+              <p key={produto.id} className="text-sm text-slate-400">
+                {produto.nome} — estoque: {produto.estoque}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4">
-        {produtosFiltrados.length > 0 ? (
-          produtosFiltrados.map(produto => {
+        {loading ? (
+          <div className="rounded-[24px] bg-[#0b0b0b] border border-[#1a1a1a] p-20 flex flex-col items-center text-center">
+            <div className="w-20 h-20 rounded-3xl bg-[#111111] border border-[#2a2a2a] flex items-center justify-center text-slate-700 mb-6 shadow-inner animate-pulse">
+              <Package className="w-10 h-10" />
+            </div>
+            <h3 className="text-white font-black text-xl mb-2">Carregando produtos...</h3>
+            <p className="text-slate-500 text-sm max-w-xs leading-relaxed">Consultando o backend para montar a lista real do catálogo.</p>
+          </div>
+        ) : erro ? (
+          <div className="rounded-[24px] bg-[#0b0b0b] border border-[#1a1a1a] p-20 flex flex-col items-center text-center">
+            <div className="w-20 h-20 rounded-3xl bg-[#111111] border border-[#2a2a2a] flex items-center justify-center text-[#d6a2b0] mb-6 shadow-inner">
+              <X className="w-10 h-10" />
+            </div>
+            <h3 className="text-white font-black text-xl mb-2">{erro}</h3>
+            <p className="text-slate-500 text-sm max-w-xs leading-relaxed">Verifique se o backend está ativo e tente novamente.</p>
+          </div>
+        ) : produtosFiltrados.length > 0 ? (
+          produtosFiltrados.map((produto) => {
             const isExpanded = expandedId === produto.id;
+            const estoqueClasse =
+              produto.estoque === 0
+                ? 'text-[#d6a2b0]'
+                : produto.estoque <= 10
+                  ? 'text-amber-400'
+                  : 'text-slate-400';
 
             return (
               <div
                 key={produto.id}
                 className={`rounded-[24px] overflow-hidden border transition-all duration-300 ${
-                  isExpanded 
-                    ? 'bg-[#0b0b0b] border-[#a100ff]/40 shadow-2xl shadow-[#a100ff]/5' 
+                  isExpanded
+                    ? 'bg-[#0b0b0b] border-[#a100ff]/40 shadow-2xl shadow-[#a100ff]/5'
                     : 'bg-[#0b0b0b] border-[#1a1a1a] hover:border-[#2a2a2a]'
                 }`}
               >
                 <button
-                  onClick={() => toggleExpand(produto.id)}
+                  onClick={() => handleToggleProduto(produto)}
                   className={`w-full flex flex-col md:flex-row md:items-center justify-between p-6 cursor-pointer text-left gap-6 transition-all ${
                     isExpanded ? 'bg-[#0f0f0f]/60' : 'bg-transparent'
                   }`}
@@ -405,56 +771,60 @@ const ProdutosList: FC = () => {
                     </div>
 
                     <div className="min-w-0">
-                       <div className="flex items-center gap-3 mb-1">
-                          <h4 className="text-white font-black text-lg tracking-tight truncate">{produto.nome}</h4>
-                          <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border ${
-                            produto.ativo 
-                              ? 'bg-[#a100ff]/10 text-[#d8b4fe] border-[#a100ff]/20' 
+                      <div className="flex items-center gap-3 mb-1">
+                        <h4 className="text-white font-black text-lg tracking-tight truncate">{produto.nome}</h4>
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border ${
+                            produto.ativo
+                              ? 'bg-[#a100ff]/10 text-[#d8b4fe] border-[#a100ff]/20'
                               : 'bg-black text-slate-600 border-[#1a1a1a]'
-                          }`}>
-                            {produto.ativo ? 'ATIVO' : 'INATIVO'}
-                          </span>
-                       </div>
-                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 uppercase tracking-tighter">
-                            <Barcode className="w-3 h-3 text-[#a100ff]/40" />
-                            {produto.sku}
-                         </div>
-                         <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
-                            <Layers className="w-3.5 h-3.5 text-slate-700" />
-                            {produto.categoria}
-                         </div>
-                       </div>
+                          }`}
+                        >
+                          {produto.ativo ? 'ATIVO' : 'INATIVO'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 uppercase tracking-tighter">
+                          <Barcode className="w-3 h-3 text-[#a100ff]/40" />
+                          {produto.sku}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+                          <Layers className="w-3.5 h-3.5 text-slate-700" />
+                          {produto.categoria}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between md:justify-end gap-x-12 gap-y-4">
-                     {/* Financial Info */}
-                     <div className="hidden sm:flex items-center gap-8 text-right">
-                        <div>
-                           <div className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mb-0.5">VALOR UNITÁRIO</div>
-                           <div className="text-sm text-white font-black flex items-center justify-end gap-1.5 leading-none">
-                              <DollarSign className="w-3 h-3 text-[#a1ffdb]" />
-                              {produto.preco}
-                           </div>
+                    {/* Financial Info */}
+                    <div className="hidden sm:flex items-center gap-8 text-right">
+                      <div>
+                        <div className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mb-0.5">VALOR UNITÁRIO</div>
+                        <div className="text-sm text-white font-black flex items-center justify-end gap-1.5 leading-none">
+                          <DollarSign className="w-3 h-3 text-[#a1ffdb]" />
+                          {formatarPreco(produto.preco)}
                         </div>
-                        <div>
-                           <div className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mb-0.5">ESTOQUE FÍSICO</div>
-                           <div className={`text-xs font-bold uppercase tracking-tight ${produto.estoque.includes('0') ? 'text-[#d6a2b0]' : 'text-slate-400'}`}>
-                              {produto.estoque}
-                           </div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mb-0.5">ESTOQUE FÍSICO</div>
+                        <div className={`text-xs font-bold uppercase tracking-tight ${estoqueClasse}`}>
+                          {formatarEstoque(produto.estoque)}
                         </div>
-                     </div>
+                      </div>
+                    </div>
 
-                     <div className="flex items-center gap-4 ml-auto">
-                        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all ${
-                          isExpanded 
-                            ? 'bg-[#a100ff]/10 border-[#a100ff]/30 text-[#d8b4fe]' 
+                    <div className="flex items-center gap-4 ml-auto">
+                      <div
+                        className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all ${
+                          isExpanded
+                            ? 'bg-[#a100ff]/10 border-[#a100ff]/30 text-[#d8b4fe]'
                             : 'bg-[#111111] border-[#2a2a2a] text-slate-600'
-                        }`}>
-                          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                        </div>
-                     </div>
+                        }`}
+                      >
+                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                      </div>
+                    </div>
                   </div>
                 </button>
 
@@ -464,11 +834,15 @@ const ProdutosList: FC = () => {
           })
         ) : (
           <div className="rounded-[24px] bg-[#0b0b0b] border border-[#1a1a1a] p-20 flex flex-col items-center text-center">
-             <div className="w-20 h-20 rounded-3xl bg-[#111111] border border-[#2a2a2a] flex items-center justify-center text-slate-700 mb-6 shadow-inner">
-                <Box className="w-10 h-10" />
-             </div>
-             <h3 className="text-white font-black text-xl mb-2">Sem resultados de catálogo</h3>
-             <p className="text-slate-500 text-sm max-w-xs leading-relaxed">Tente ajustar sua busca ou filtros.</p>
+            <div className="w-20 h-20 rounded-3xl bg-[#111111] border border-[#2a2a2a] flex items-center justify-center text-slate-700 mb-6 shadow-inner">
+              <Box className="w-10 h-10" />
+            </div>
+            <h3 className="text-white font-black text-xl mb-2">
+              {produtos.length === 0 ? 'Nenhum produto cadastrado.' : 'Sem resultados de catálogo'}
+            </h3>
+            <p className="text-slate-500 text-sm max-w-xs leading-relaxed">
+              {produtos.length === 0 ? 'Cadastre produtos no backend para exibi-los aqui.' : 'Tente ajustar sua busca ou filtros.'}
+            </p>
           </div>
         )}
       </div>
@@ -480,7 +854,7 @@ const ProdutosList: FC = () => {
             Inventário Consolidado {new Date().getFullYear()}
          </div>
          <div className="text-[10px] font-medium text-slate-600 uppercase tracking-widest">
-            Exibindo {produtosFiltrados.length} de {mockProdutos.length} unidades registradas
+          Exibindo {produtosFiltrados.length} de {produtos.length} unidades registradas
          </div>
       </div>
     </PageLayout>
