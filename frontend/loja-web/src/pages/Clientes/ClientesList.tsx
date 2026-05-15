@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Search,
   UserPlus,
@@ -11,10 +11,14 @@ import {
   Mail,
   CreditCard,
   Trash2,
-  Sparkles,
-  Filter
+  Sparkles
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { PageLayout } from '../../components/ui/PageLayout';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { PageToolbar } from '../../components/ui/PageToolbar';
+import { PrimaryActionButton } from '../../components/ui/PrimaryActionButton';
+import { FilterDropdown, FilterGroup, FilterOption } from '../../components/ui/FilterDropdown';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,7 +95,7 @@ const mockClientes: ClienteMock[] = [
 // ─── Style helpers ────────────────────────────────────────────────────────────
 
 const inputClassName =
-  'w-full bg-[#111111] h-11 rounded-xl px-4 text-sm text-white placeholder-slate-600 border border-[#2a2a2a] focus:border-[#a100ff]/60 focus:outline-none transition-all';
+  'w-full bg-[#151515] border border-[#2a2a2a] h-11 rounded-xl px-4 text-sm text-white placeholder-slate-500 outline-none focus:outline-none focus:ring-0 focus:border-[#a100ff] transition-colors duration-200';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -99,21 +103,52 @@ export default function ClientesList() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [balanceFilter, setBalanceFilter] = useState<'todos' | 'com' | 'sem'>('todos');
+  const [cityFilter, setCityFilter] = useState<string>('');
+  const [ufFilter, setUfFilter] = useState<string>('');
+  const [accountFilter, setAccountFilter] = useState<'todos' | 'com' | 'sem'>('todos');
 
+  const cities = useMemo(() => Array.from(new Set(mockClientes.map(c => c.cidade).filter(Boolean))), []);
+  const ufs = useMemo(() => Array.from(new Set(mockClientes.map(c => c.uf).filter(Boolean))), []);
   const filteredClientes = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
-    if (!term) return mockClientes;
 
-    return mockClientes.filter(
-      c =>
+    return mockClientes.filter((c) => {
+      const matchesSearch =
+        !term ||
         c.nome.toLowerCase().includes(term) ||
         c.cpf.includes(term) ||
         c.email.toLowerCase().includes(term) ||
         c.telefone.includes(term) ||
-        c.cidade.toLowerCase().includes(term) ||
-        c.conta.toLowerCase().includes(term)
-    );
-  }, [searchTerm]);
+        (c.cidade || '').toLowerCase().includes(term) ||
+        (c.conta || '').toLowerCase().includes(term);
+
+      // balance parsing
+      const saldoNum = Number((c.saldo || '').replace(/[^0-9,-]+/g, '').replace(',', '.')) || 0;
+      const matchesBalance =
+        balanceFilter === 'todos' ||
+        (balanceFilter === 'com' && saldoNum > 0) ||
+        (balanceFilter === 'sem' && saldoNum === 0);
+
+      const matchesCity = !cityFilter || (c.cidade === cityFilter);
+      const matchesUf = !ufFilter || (c.uf === ufFilter);
+
+      const matchesAccount =
+        accountFilter === 'todos' ||
+        (accountFilter === 'com' && !!c.conta) ||
+        (accountFilter === 'sem' && !c.conta);
+
+      return matchesSearch && matchesBalance && matchesCity && matchesUf && matchesAccount;
+    });
+  }, [searchTerm, balanceFilter, cityFilter, ufFilter, accountFilter]);
+
+  // Count active filters for badge
+  const activeFiltersCount = [
+    balanceFilter !== 'todos' ? 1 : 0,
+    cityFilter !== '' ? 1 : 0,
+    ufFilter !== '' ? 1 : 0,
+    accountFilter !== 'todos' ? 1 : 0
+  ].reduce((a, b) => a + b, 0);
 
   const toggleExpand = (id: string) => {
     setExpandedId(prev => (prev === id ? null : id));
@@ -260,12 +295,12 @@ export default function ClientesList() {
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <Button
               onClick={() => isCreate && setShowCreateForm(false)}
-              className="flex-1 sm:flex-initial h-11 px-8 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 font-bold hover:text-white transition-all text-xs"
+              className="flex-1 sm:flex-initial h-11 px-8 rounded-xl bg-[#111111] hover:bg-[#161616] text-slate-300 hover:text-white border border-[#2a2a2a] hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors text-xs"
             >
               CANCELAR
             </Button>
 
-            <Button className="flex-1 sm:flex-initial h-11 px-10 rounded-xl bg-[#a100ff] text-white font-black hover:bg-[#b833ff] shadow-lg shadow-[#a100ff]/20 transition-all text-xs">
+            <Button className="flex-1 sm:flex-initial h-11 px-10 rounded-xl bg-[#a100ff] hover:bg-[#b933ff] text-white border border-[#a100ff] font-black outline-none focus:outline-none focus:ring-0 transition-colors text-xs">
               {isCreate ? 'FINALIZAR CADASTRO' : 'SALVAR ALTERAÇÕES'}
             </Button>
           </div>
@@ -275,62 +310,133 @@ export default function ClientesList() {
   };
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-20">
-      
-      {/* 1. Header Premium */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-[#0b0b0b] border border-[#2a2a2a] flex items-center justify-center text-[#a100ff]">
-              <UserPlus className="w-5 h-5" />
-            </div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">Clientes</h1>
-          </div>
-          <p className="text-slate-400 text-sm">Gerencie cadastros, endereços e contas financeiras</p>
-        </div>
-
-        <Button
-          onClick={() => setShowCreateForm(prev => !prev)}
-          className={`h-11 px-6 rounded-xl font-black transition-all shadow-lg gap-2 ${
-            showCreateForm 
-              ? 'bg-[#111111] border border-[#2a2a2a] text-slate-400 hover:text-white' 
-              : 'bg-[#a100ff] text-white hover:bg-[#b833ff] shadow-[#a100ff]/20'
-          }`}
-        >
-          {showCreateForm ? (
-            <Fragment>
+    <PageLayout>
+      <PageHeader
+        title="Clientes"
+        subtitle="Gerencie cadastros, endereços e contas financeiras"
+        icon={<UserPlus className="w-5 h-5" />}
+        action={
+          showCreateForm ? (
+            <Button
+              onClick={() => setShowCreateForm(false)}
+              className="w-full md:w-auto h-11 px-6 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 font-black hover:text-white transition-all gap-2"
+            >
               <X className="w-4 h-4" />
               FECHAR FORMULÁRIO
-            </Fragment>
+            </Button>
           ) : (
-            <Fragment>
+            <PrimaryActionButton onClick={() => setShowCreateForm(true)}>
               <UserPlus className="w-4 h-4" />
               CADASTRAR CLIENTE
-            </Fragment>
-          )}
-        </Button>
-      </div>
+            </PrimaryActionButton>
+          )
+        }
+      />
 
-      {/* 2. Barra de Busca e Filtro */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Buscar por nome, CPF, e-mail, telefone, cidade ou conta..."
-            value={searchTerm}
-            onChange={event => setSearchTerm(event.target.value)}
-            className="w-full h-12 bg-[#0b0b0b] rounded-2xl px-6 pr-14 text-slate-200 placeholder-slate-700 border border-[#2a2a2a] focus:border-[#a100ff]/50 focus:outline-none transition-all"
-          />
-          <button className="absolute right-0 top-0 h-12 w-16 flex items-center justify-center text-slate-500 hover:text-[#a100ff] transition-colors border-l border-[#2a2a2a] my-2 h-8">
-            <Search className="w-5 h-5" />
-          </button>
-        </div>
+      <PageToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Buscar por nome, CPF, e-mail, telefone, cidade ou conta..."
+        rightContent={
+          <div className="flex items-center gap-3">
+            <FilterDropdown activeFiltersCount={activeFiltersCount}>
+              {/* Balance Filter */}
+              <FilterGroup title="Saldo">
+                <FilterOption
+                  label="Todos"
+                  isActive={balanceFilter === 'todos'}
+                  onClick={() => setBalanceFilter('todos')}
+                />
+                <FilterOption
+                  label="Com saldo"
+                  isActive={balanceFilter === 'com'}
+                  onClick={() => setBalanceFilter('com')}
+                />
+                <FilterOption
+                  label="Sem saldo"
+                  isActive={balanceFilter === 'sem'}
+                  onClick={() => setBalanceFilter('sem')}
+                />
+              </FilterGroup>
 
-        <div className="flex items-center gap-2 px-4 h-12 rounded-2xl bg-[#0b0b0b] border border-[#2a2a2a] text-slate-500 text-[10px] font-bold uppercase tracking-widest">
-           <Filter className="w-4 h-4 mr-1 text-[#a100ff]/60" />
-           {filteredClientes.length} CLIENTES ENCONTRADOS
-        </div>
-      </div>
+              {/* Location Filter */}
+              <FilterGroup title="Localização">
+                <label className="text-[10px] text-slate-400 font-semibold uppercase mb-2 block">
+                  Cidade
+                </label>
+                <select
+                  value={cityFilter}
+                  onChange={(e) => setCityFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#111111] border border-[#2a2a2a] text-slate-300 text-xs font-semibold focus:outline-none focus:border-[#a100ff] transition-all mb-3"
+                >
+                  <option value="">Todas as cidades</option>
+                  {cities.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
+
+                <label className="text-[10px] text-slate-400 font-semibold uppercase mb-2 block">
+                  Estado
+                </label>
+                <select
+                  value={ufFilter}
+                  onChange={(e) => setUfFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#111111] border border-[#2a2a2a] text-slate-300 text-xs font-semibold focus:outline-none focus:border-[#a100ff] transition-all"
+                >
+                  <option value="">Todos os estados</option>
+                  {ufs.map((uf) => (
+                    <option key={uf} value={uf}>
+                      {uf}
+                    </option>
+                  ))}
+                </select>
+              </FilterGroup>
+
+              {/* Account Filter */}
+              <FilterGroup title="Conta">
+                <FilterOption
+                  label="Todos"
+                  isActive={accountFilter === 'todos'}
+                  onClick={() => setAccountFilter('todos')}
+                />
+                <FilterOption
+                  label="Com conta"
+                  isActive={accountFilter === 'com'}
+                  onClick={() => setAccountFilter('com')}
+                />
+                <FilterOption
+                  label="Sem conta"
+                  isActive={accountFilter === 'sem'}
+                  onClick={() => setAccountFilter('sem')}
+                />
+              </FilterGroup>
+
+              {/* Clear button */}
+              <div className="border-t border-[#1a1a1a] pt-4 mt-4">
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setBalanceFilter('todos');
+                    setCityFilter('');
+                    setUfFilter('');
+                    setAccountFilter('todos');
+                  }}
+                  className="w-full px-3 py-2 rounded-lg bg-[#111111] border border-[#2a2a2a] text-slate-400 hover:text-slate-200 text-xs font-semibold transition-all"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            </FilterDropdown>
+
+            {/* Counter */}
+            <div className="flex items-center gap-2 px-4 h-12 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-500 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
+              {filteredClientes.length} encontrados
+            </div>
+          </div>
+        }
+      />
 
       {/* 3. Cadastro Form */}
       {showCreateForm && (
@@ -446,14 +552,7 @@ export default function ClientesList() {
                 <Search className="w-10 h-10" />
              </div>
              <h3 className="text-white font-black text-xl mb-2">Nenhum cliente encontrado</h3>
-             <p className="text-slate-500 text-sm max-w-xs leading-relaxed">Não localizamos nenhum registro correspondente ao termo "{searchTerm}".</p>
-             
-             <Button 
-                onClick={() => setSearchTerm('')} 
-                className="mt-8 bg-[#111111] border border-[#a100ff]/30 text-[#d8b4fe] hover:bg-[#a100ff]/10 hover:border-[#a100ff]/50 px-8 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
-             >
-                Limpar Busca
-             </Button>
+             <p className="text-slate-500 text-sm max-w-xs leading-relaxed">Tente ajustar sua busca.</p>
           </div>
         )}
       </div>
@@ -468,6 +567,6 @@ export default function ClientesList() {
             Sincronizado via Accenture-Cloud
          </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }

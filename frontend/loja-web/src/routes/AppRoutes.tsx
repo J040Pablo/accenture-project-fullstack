@@ -7,6 +7,7 @@ import ClientesList from '../pages/Clientes/ClientesList';
 import ProdutosList from '../pages/Produtos/ProdutosList';
 import PedidosList from '../pages/Pedidos/PedidosList';
 import Contas from '../pages/Contas/Contas';
+import AnaliseRisco from '../pages/AnaliseRisco/AnaliseRisco';
 import Relatorios from '../pages/Relatorios/Relatorios';
 
 export const AppRoutes: React.FC = () => {
@@ -18,6 +19,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="produtos" element={<ProdutosList />} />
         <Route path="pedidos" element={<PedidosList />} />
         <Route path="contas" element={<Contas />} />
+        <Route path="analise-risco" element={<AnaliseRisco />} />
         <Route path="relatorios" element={<Relatorios />} />
       </Route>
     </Routes>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -6,6 +6,7 @@ import {
   Package,
   ShoppingCart,
   CreditCard,
+  ShieldCheck,
   FileText,
   User
 } from 'lucide-react';
@@ -18,11 +19,12 @@ const navItems = [
   { name: 'Produtos', path: '/produtos', icon: Package },
   { name: 'Pedidos', path: '/pedidos', icon: ShoppingCart },
   { name: 'Contas', path: '/contas', icon: CreditCard },
+  { name: 'Análise de Risco', path: '/analise-risco', icon: ShieldCheck },
   { name: 'Relatórios', path: '/relatorios', icon: FileText },
 ];
 
 export const Sidebar: React.FC = () => {
-  const [isHovered, setIsHovered] = useState(false);
+  const [isExpanded, setIsExpanded] = React.useState(true);
   const location = useLocation();
 
   const activeIndex = navItems.findIndex((item) => {
@@ -33,41 +35,34 @@ export const Sidebar: React.FC = () => {
     return location.pathname.startsWith(item.path);
   });
 
+  React.useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--sidebar-width', '13rem');
+    root.style.setProperty('--sidebar-collapsed-width', '4rem');
+    root.style.setProperty('--current-sidebar-width', isExpanded ? '13rem' : '4rem');
+  }, [isExpanded]);
+
   return (
     <aside
-      className={cn(
-        'bg-black flex flex-col transition-[width] duration-300 ease-in-out relative z-20 py-4',
-        isHovered ? 'w-52' : 'w-16'
-      )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => setIsExpanded(true)}
+      onMouseLeave={() => setIsExpanded(false)}
+      className={cn('bg-black flex flex-col relative z-20 py-4 transition-[width] duration-300 ease-in-out', isExpanded ? 'w-52' : 'w-16')}
     >
       {/* Logo Area */}
-      <div
-        className={cn(
-          'flex items-center px-3 mb-8 transition-all duration-300',
-          isHovered ? 'justify-center gap-2' : 'justify-center'
-        )}
-      >
-        {isHovered && (
+      <div className={cn('flex items-center px-3 mb-8 transition-all duration-300', isExpanded ? 'justify-center gap-2' : 'justify-center')}>
+        {isExpanded && (
           <span className="text-white font-semibold text-base tracking-wide whitespace-nowrap">
             Logo
           </span>
         )}
-
-        <div
-  className={cn(
-    'w-12 h-12 flex items-center justify-center transform transition-transform duration-500 cursor-pointer',
-    isHovered ? 'rotate-180' : 'rotate-0'
-  )}
->
+        <div className={cn('w-12 h-12 flex items-center justify-center transform transition-transform duration-500 cursor-pointer', isExpanded ? 'rotate-180' : 'rotate-0')}>
   <img
     src={Logo}
     alt="Logo"
     className="w-11 h-11 object-contain select-none pointer-events-none"
     draggable={false}
   />
-</div>
+        </div>
       </div>
 
       {/* Navigation Links */}
@@ -77,7 +72,7 @@ export const Sidebar: React.FC = () => {
           <div
             className={cn(
               'absolute top-0 h-10 rounded-full bg-[#a100ff] shadow-lg shadow-[#a100ff]/40 transition-[transform,width,left] duration-300 ease-out',
-              isHovered ? 'left-2 w-[calc(100%-1rem)]' : 'left-3 w-10'
+              isExpanded ? 'left-2 w-[calc(100%-1rem)]' : 'left-3 w-10'
             )}
             style={{
               transform: `translateY(${activeIndex * 48}px)`
@@ -93,7 +88,7 @@ export const Sidebar: React.FC = () => {
               className={({ isActive }) =>
                 cn(
                   'group flex items-center transition-all duration-300 h-10 relative',
-                  isHovered
+                  isExpanded
                     ? 'w-full rounded-full px-3 gap-3'
                     : 'w-10 mx-auto rounded-full justify-center',
                   isActive
@@ -111,7 +106,7 @@ export const Sidebar: React.FC = () => {
                     )}
                   />
 
-                  {isHovered && (
+                  {isExpanded && (
                     <span
                       className={cn(
                         'font-medium whitespace-nowrap text-sm transition-colors duration-300',
@@ -131,29 +126,30 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* User Profile Area */}
-      <div className="mt-auto px-2 pt-4">
+      <div className="mt-auto px-2 pt-4 border-t border-[#1a1a1a]">
         <div
           className={cn(
-            'flex items-center h-10 rounded-full transition-all duration-300 overflow-hidden',
-            isHovered
-              ? 'justify-start px-2 gap-2 bg-[#111111]'
+            'flex items-center h-12 rounded-2xl transition-all duration-300 overflow-hidden',
+            isExpanded
+              ? 'justify-start px-2 gap-3 bg-white/[0.03] border border-white/5 backdrop-blur-md shadow-inner'
               : 'justify-center px-0'
           )}
         >
-          <div className="w-9 h-9 rounded-full bg-[#2a2a2a] flex items-center justify-center flex-shrink-0">
-            <User className="w-5 h-5 text-white" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a] flex items-center justify-center flex-shrink-0 border border-white/10 shadow-lg">
+            <User className="w-5 h-5 text-slate-300" />
           </div>
 
-          <span
-            className={cn(
-              'text-white font-medium text-sm truncate whitespace-nowrap transition-all duration-300 overflow-hidden',
-              isHovered
-                ? 'opacity-100 translate-x-0 max-w-32'
-                : 'opacity-0 -translate-x-2 max-w-0'
-            )}
-          >
-            Hello, UserName
-          </span>
+          <div className={cn(
+            'flex flex-col transition-all duration-300 overflow-hidden',
+            isExpanded ? 'opacity-100 max-w-32' : 'opacity-0 max-w-0'
+          )}>
+            <span className="text-white font-bold text-xs truncate">
+              Administrador
+            </span>
+            <span className="text-[10px] text-slate-500 font-medium">
+              pablo@accenture.com
+            </span>
+          </div>
         </div>
       </div>
     </aside>

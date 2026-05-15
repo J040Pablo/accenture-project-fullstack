@@ -1,4 +1,5 @@
 import { useMemo, useState, Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,10 +17,16 @@ import {
   Search,
   ShoppingCart,
   Sparkles,
+  ShieldCheck,
   User,
   Wallet
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { PageLayout } from '../../components/ui/PageLayout';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { PageToolbar } from '../../components/ui/PageToolbar';
+import { PrimaryActionButton } from '../../components/ui/PrimaryActionButton';
+import type { RiskLevel } from '../../types/AnaliseRisco';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,6 +66,11 @@ type PedidoResumo = {
   data: string;
   status: PedidoStatus;
   total: string;
+  nivelRisco: RiskLevel;
+  scoreRisco: number;
+  motivoRisco: string;
+  recomendacaoRisco: string;
+  fatoresRisco: string[];
   clienteSaldo: string;
   empresaSaldo: string;
   dataPagamento?: string;
@@ -105,6 +117,11 @@ const pedidosMock: PedidoResumo[] = [
     data: '09/05/2026',
     status: 'ABERTO',
     total: 'R$ 145,00',
+    nivelRisco: 'BAIXO',
+    scoreRisco: 18,
+    motivoRisco: 'Cliente possui saldo suficiente e itens com estoque disponível.',
+    recomendacaoRisco: 'Pedido apto para seguir para reserva.',
+    fatoresRisco: ['Saldo suficiente', 'Estoque disponível'],
     clienteSaldo: 'R$ 1.250,00',
     empresaSaldo: 'R$ 29.402,00',
     itens: [
@@ -122,6 +139,11 @@ const pedidosMock: PedidoResumo[] = [
     data: '08/05/2026',
     status: 'RESERVADO',
     total: 'R$ 89,90',
+    nivelRisco: 'MEDIO',
+    scoreRisco: 54,
+    motivoRisco: 'Pedido com valor acima da média e estoque próximo do limite.',
+    recomendacaoRisco: 'Revisar estoque antes de confirmar pagamento.',
+    fatoresRisco: ['Valor acima da média', 'Estoque próximo do limite'],
     clienteSaldo: 'R$ 2.580,00',
     empresaSaldo: 'R$ 29.402,00',
     dataPagamento: '-',
@@ -145,17 +167,41 @@ const statusStyles: Record<PedidoStatus, string> = {
   FALHOU: 'bg-[#1a1024] text-[#c4b5fd] border-[#5b21b6]/30'
 };
 
+const riskStyles: Record<RiskLevel, { label: string; badge: string; dot: string; text: string }> = {
+  BAIXO: {
+    label: 'Baixo risco',
+    badge: 'bg-[#a100ff]/10 text-[#d8b4fe] border-[#a100ff]/20',
+    dot: 'bg-[#a100ff]',
+    text: 'text-[#d8b4fe]',
+  },
+  MEDIO: {
+    label: 'Médio risco',
+    badge: 'bg-[#7c3aed]/10 text-[#c4b5fd] border-[#7c3aed]/20',
+    dot: 'bg-[#7c3aed]',
+    text: 'text-[#c4b5fd]',
+  },
+  ALTO: {
+    label: 'Alto risco',
+    badge: 'bg-[#2a1118] text-[#d6a2b0] border-[#5a1f35]/40',
+    dot: 'bg-[#8b5cf6]',
+    text: 'text-[#d6a2b0]',
+  },
+};
+
+import { SearchInput } from '../../components/ui/SearchInput';
+
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PedidosList() {
+  const navigate = useNavigate();
   const [screen, setScreen] = useState<ScreenMode>('list');
   const [createStep, setCreateStep] = useState<CreateStep>(1);
   const [expandedStatus, setExpandedStatus] = useState<PedidoStatus>('ABERTO');
   const [selectedPedidoId, setSelectedPedidoId] = useState('1');
   const [selectedClientId, setSelectedClientId] = useState('1');
   const [selectedProductId, setSelectedProductId] = useState('1');
-  const [expandedRowId, setExpandedRowId] = useState<string | null>('1');
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [clienteSearch, setClienteSearch] = useState('');
@@ -174,6 +220,8 @@ export default function PedidosList() {
     () => produtosMock.find(produto => produto.id === selectedProductId) ?? produtosMock[0],
     [selectedProductId]
   );
+
+  const activeStatusIndex = statusOptions.findIndex(status => status === expandedStatus);
 
   const filteredPedidos = pedidosMock.filter(pedido => {
     const matchesStatus = pedido.status === expandedStatus;
@@ -216,17 +264,17 @@ export default function PedidosList() {
   const renderActionButtons = (status: PedidoStatus, compact = false) => {
     const baseClass = compact ? 'h-8 px-3 rounded-lg text-xs' : 'h-10 px-5 rounded-xl text-sm font-semibold';
     
-    const purpleActionClass = 'bg-[#111111] border border-[#a100ff]/30 text-[#d8b4fe] hover:bg-[#a100ff]/10 hover:border-[#a100ff]/50 transition-all';
-    const dangerActionClass = 'bg-[#111111] border border-[#5a1f35]/40 text-[#d6a2b0] hover:bg-[#2a1118] hover:border-[#5a1f35]/60 transition-all';
+    const purpleActionClass = 'bg-[#111111] hover:bg-[#161616] text-[#d8b4fe] hover:text-white border border-[#a100ff]/20 hover:border-[#a100ff]/40 rounded-xl outline-none focus:outline-none focus:ring-0 transition-colors';
+    const dangerActionClass = 'bg-[#111111] hover:bg-[#161616] text-[#d6a2b0] hover:text-[#f0c2cf] border border-[#5a1f35]/40 hover:border-[#5a1f35]/70 rounded-xl outline-none focus:outline-none focus:ring-0 transition-colors';
 
     if (status === 'ABERTO') {
       return (
-        <div className="flex flex-wrap gap-2 justify-end">
-          <Button className={`${purpleActionClass} ${baseClass}`}>
+        <div className="flex items-center gap-2 justify-end flex-nowrap">
+          <Button className={`${purpleActionClass} ${baseClass} shrink-0`}>
             <PackageCheck className="w-4 h-4 mr-2" />
             Reservar
           </Button>
-          <Button className={`${dangerActionClass} ${baseClass}`}>
+          <Button className={`${dangerActionClass} ${baseClass} shrink-0`}>
             <Ban className="w-4 h-4 mr-2" />
             Cancelar
           </Button>
@@ -236,12 +284,12 @@ export default function PedidosList() {
 
     if (status === 'RESERVADO') {
       return (
-        <div className="flex flex-wrap gap-2 justify-end">
-          <Button className={`${purpleActionClass} ${baseClass}`}>
+        <div className="flex items-center gap-2 justify-end flex-nowrap">
+          <Button className={`${purpleActionClass} ${baseClass} shrink-0`}>
             <CreditCard className="w-4 h-4 mr-2" />
             Pagar
           </Button>
-          <Button className={`${dangerActionClass} ${baseClass}`}>
+          <Button className={`${dangerActionClass} ${baseClass} shrink-0`}>
             <Ban className="w-4 h-4 mr-2" />
             Cancelar
           </Button>
@@ -251,8 +299,8 @@ export default function PedidosList() {
 
     if (status === 'PAGO') {
       return (
-        <div className="flex flex-wrap gap-2 justify-end">
-          <Button className={`${dangerActionClass} ${baseClass}`}>
+        <div className="flex items-center gap-2 justify-end flex-nowrap">
+          <Button className={`${dangerActionClass} ${baseClass} shrink-0`}>
             <Ban className="w-4 h-4 mr-2" />
             Cancelar
           </Button>
@@ -261,10 +309,10 @@ export default function PedidosList() {
     }
 
     return (
-      <div className="flex flex-wrap gap-2 justify-end">
+      <div className="flex items-center gap-2 justify-end flex-nowrap">
         <Button 
           onClick={status === 'CANCELADO' || status === 'FALHOU' ? () => {} : undefined}
-          className={`${purpleActionClass} ${baseClass}`}
+          className={`${purpleActionClass} ${baseClass} shrink-0`}
         >
           <Sparkles className="w-4 h-4 mr-2" />
           Ver pedido
@@ -274,59 +322,56 @@ export default function PedidosList() {
   };
 
   const renderListView = () => (
-    <div className="space-y-8 max-w-6xl mx-auto">
-      
-      {/* 1. Header Premium */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-[#0b0b0b] border border-[#2a2a2a] flex items-center justify-center text-[#a100ff]">
-              <ShoppingCart className="w-5 h-5" />
+    <PageLayout>
+      <PageHeader
+        title="Pedidos"
+        subtitle="Gerencie o fluxo de reserva, pagamento e cancelamento"
+        icon={<ShoppingCart className="w-5 h-5" />}
+        action={
+          <PrimaryActionButton onClick={startCreateFlow}>
+            <Plus className="w-5 h-5" />
+            Criar pedido
+          </PrimaryActionButton>
+        }
+      />
+
+      <PageToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Buscar por cliente ou número do pedido"
+        rightContent={
+          <div className="overflow-x-auto">
+            <div className="min-w-[520px] rounded-2xl border border-[#2a2a2a] bg-[#111111] p-2">
+              <div className="relative grid grid-cols-5 gap-1">
+                <div
+                  className="pointer-events-none absolute top-0 bottom-0 left-0 rounded-xl bg-[#a100ff] shadow-[0_0_18px_rgba(161,0,255,0.28)] transition-transform duration-300 ease-out"
+                  style={{
+                    width: `${100 / statusOptions.length}%`,
+                    transform: `translateX(${activeStatusIndex * 100}%)`
+                  }}
+                />
+
+                {statusOptions.map(status => {
+                  const isActive = expandedStatus === status;
+
+                  return (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setExpandedStatus(status)}
+                      className={`relative z-10 h-10 w-full rounded-xl px-4 text-[11px] font-bold tracking-[0.16em] transition-colors duration-300 ${
+                        isActive ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">Pedidos</h1>
           </div>
-          <p className="text-slate-400 text-sm">Gerencie o fluxo de reserva, pagamento e cancelamento</p>
-        </div>
-
-        <Button
-          onClick={startCreateFlow}
-          className="bg-[#a100ff] hover:bg-[#b833ff] text-white shadow-lg shadow-[#a100ff]/10 gap-2 rounded-xl h-11 px-6 font-bold transition-all"
-        >
-          <Plus className="w-5 h-5" />
-          Criar pedido
-        </Button>
-      </div>
-
-      {/* 2. Barra de Busca e Filtro */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Buscar por cliente ou número do pedido"
-            value={searchTerm}
-            onChange={event => setSearchTerm(event.target.value)}
-            className="w-full h-12 bg-[#0b0b0b] rounded-2xl px-5 pr-14 text-slate-200 placeholder-slate-600 border border-[#2a2a2a] focus:border-[#a100ff]/50 focus:outline-none focus:ring-1 focus:ring-[#a100ff]/20 transition-all"
-          />
-          <button className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center text-slate-500 hover:text-[#a100ff] transition-colors">
-            <Search className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#0b0b0b] border border-[#2a2a2a] rounded-2xl">
-          {statusOptions.map(status => (
-            <button
-              key={status}
-              onClick={() => setExpandedStatus(status)}
-              className={`px-4 h-9 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${expandedStatus === status
-                  ? 'bg-[#a100ff] text-white shadow-inner'
-                  : 'text-slate-500 hover:bg-[#151515] hover:text-slate-300'
-                }`}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
-      </div>
+        }
+      />
 
       {/* 3. Tabela de Pedidos */}
       <div className="rounded-2xl overflow-hidden bg-[#0b0b0b] border border-[#2a2a2a]">
@@ -342,15 +387,16 @@ export default function PedidosList() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
+          <table className="w-full text-left border-collapse table-fixed min-w-[1240px]">
             <thead>
               <tr className="text-slate-600 border-b border-[#1a1a1a] text-[10px] font-bold uppercase tracking-widest bg-[#0f0f0f]/40">
-                <th className="p-5">Número</th>
-                <th className="p-5">Cliente</th>
-                <th className="p-5">Data Criação</th>
-                <th className="p-5">Status</th>
-                <th className="p-5">Total</th>
-                <th className="p-5 text-right px-6">Ações</th>
+                <th className="p-5 font-medium w-[140px]">Número</th>
+                <th className="p-5 font-medium w-[220px]">Cliente</th>
+                <th className="p-5 font-medium w-[150px]">Data Criação</th>
+                <th className="p-5 font-medium w-[140px]">Status</th>
+                <th className="p-5 font-medium w-[140px]">Total</th>
+                <th className="p-5 font-medium w-[170px]">Risco</th>
+                <th className="p-5 font-medium text-right w-[290px]">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#141414]">
@@ -361,16 +407,22 @@ export default function PedidosList() {
                   return (
                     <Fragment key={pedido.id}>
                       <tr className="group hover:bg-[#ffffff]/[0.015] transition-colors cursor-pointer" onClick={() => setExpandedRowId(isExpanded ? null : pedido.id)}>
-                        <td className="p-5 font-mono text-xs font-bold text-slate-400 group-hover:text-white transition-colors">{pedido.numero}</td>
-                        <td className="p-5 text-sm text-slate-300 group-hover:text-slate-100 transition-colors">{pedido.cliente}</td>
-                        <td className="p-5 text-xs text-slate-500">{pedido.data}</td>
-                        <td className="p-5" onClick={(e) => e.stopPropagation()}>{renderStatusChip(pedido.status)}</td>
-                        <td className="p-5 font-bold text-white tracking-tight">{pedido.total}</td>
-                        <td className="p-5 text-right px-6" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center gap-2 justify-end">
+                        <td className="p-5 font-mono text-xs font-bold text-slate-400 group-hover:text-white transition-colors align-middle truncate whitespace-nowrap">{pedido.numero}</td>
+                        <td className="p-5 text-sm text-slate-300 group-hover:text-slate-100 transition-colors align-middle truncate whitespace-nowrap">{pedido.cliente}</td>
+                        <td className="p-5 text-xs text-slate-500 align-middle truncate whitespace-nowrap">{pedido.data}</td>
+                        <td className="p-5 align-middle" onClick={(e) => e.stopPropagation()}>{renderStatusChip(pedido.status)}</td>
+                        <td className="p-5 font-bold text-white tracking-tight align-middle truncate whitespace-nowrap">{pedido.total}</td>
+                        <td className="p-5 align-middle" onClick={(e) => e.stopPropagation()}>
+                          <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-tighter ${riskStyles[pedido.nivelRisco].badge}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${riskStyles[pedido.nivelRisco].dot}`} />
+                            {riskStyles[pedido.nivelRisco].label}
+                          </span>
+                        </td>
+                        <td className="p-5 text-right align-middle" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2 justify-end flex-nowrap">
                             <Button
                               onClick={() => openPedidoDetail(pedido.id)}
-                              className="bg-[#111111] border border-[#a100ff]/30 text-[#d8b4fe] hover:bg-[#a100ff]/10 hover:border-[#a100ff]/50 rounded-lg h-8 px-3 text-[11px] font-bold transition-all"
+                              className="bg-[#111111] hover:bg-[#161616] text-[#d8b4fe] hover:text-white border border-[#a100ff]/20 hover:border-[#a100ff]/40 rounded-xl h-8 px-3 text-[11px] font-bold outline-none focus:outline-none focus:ring-0 transition-colors shrink-0"
                             >
                               <Sparkles className="w-3.5 h-3.5 mr-1.5" />
                               VER
@@ -378,7 +430,7 @@ export default function PedidosList() {
                             {renderActionButtons(pedido.status, true)}
                             <button
                               onClick={() => setExpandedRowId(isExpanded ? null : pedido.id)}
-                              className={`w-8 h-8 rounded-lg bg-[#111111] border border-[#2a2a2a] flex items-center justify-center text-slate-500 hover:text-slate-300 transition-all ${isExpanded ? 'bg-[#151515] border-[#a100ff]/50 text-[#a100ff]' : ''}`}
+                              className={`w-8 h-8 rounded-lg bg-[#111111] border border-[#2a2a2a] flex items-center justify-center text-slate-500 hover:text-slate-300 outline-none focus:outline-none focus:ring-0 transition-colors shrink-0 ${isExpanded ? 'bg-[#151515] border-[#a100ff]/50 text-[#a100ff]' : ''}`}
                             >
                               {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                             </button>
@@ -387,8 +439,8 @@ export default function PedidosList() {
                       </tr>
                       {isExpanded && (
                         <tr className="bg-[#0f0f0f]/60 animate-in fade-in slide-in-from-top-1 duration-200">
-                          <td colSpan={6} className="p-6 border-b border-[#1a1a1a]">
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                          <td colSpan={7} className="p-0 border-b border-[#1a1a1a]">
+                            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-5">
                               <div className="rounded-2xl border border-[#2a2a2a] bg-[#111111] p-5 hover:border-[#a100ff]/20 transition-colors">
                                 <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-3 flex items-center gap-2">
                                   <User className="w-3 h-3" /> CLIENTE
@@ -420,6 +472,42 @@ export default function PedidosList() {
                                   <p className="text-[10px] leading-relaxed text-slate-500 mt-3 pt-3 border-t border-[#1a1a1a]">Fluxo recomendado: Verifique a reserva antes de processar o pagamento para garantir a integridade do estoque.</p>
                                 </div>
                               </div>
+
+                              <div className="rounded-2xl border border-[#2a2a2a] bg-[#111111] p-5 hover:border-[#a100ff]/20 transition-colors">
+                                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                  <ShieldCheck className="w-3 h-3" /> ANÁLISE DE RISCO
+                                </div>
+                                <div className="flex items-center justify-between gap-4 mb-4">
+                                  <div>
+                                    <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Score</div>
+                                    <div className="text-2xl font-black text-white tracking-tight">{pedido.scoreRisco} / 100</div>
+                                  </div>
+                                  <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-tighter ${riskStyles[pedido.nivelRisco].badge}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${riskStyles[pedido.nivelRisco].dot}`} />
+                                    {riskStyles[pedido.nivelRisco].label}
+                                  </span>
+                                </div>
+                                <div className="space-y-3 text-xs text-slate-400">
+                                  <div>
+                                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1">Motivo</p>
+                                    <p className="leading-relaxed text-slate-300">{pedido.motivoRisco}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1">Recomendação</p>
+                                    <p className="leading-relaxed text-slate-300">{pedido.recomendacaoRisco}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">Fatores</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {pedido.fatoresRisco.map((fator) => (
+                                        <span key={fator} className="inline-flex items-center px-2.5 py-1 rounded-full border border-[#2a2a2a] bg-[#151515] text-[10px] text-slate-400">
+                                          {fator}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -444,12 +532,12 @@ export default function PedidosList() {
           </table>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 
   const renderCreateView = () => {
     return (
-      <div className="space-y-8 max-w-6xl mx-auto pb-20">
+      <PageLayout>
         
         {/* Back and Breadcrumb */}
         <div className="flex items-center gap-4">
@@ -509,13 +597,11 @@ export default function PedidosList() {
                     </div>
 
                     <div className="relative">
-                      <input
-                        type="text"
-                        value={clienteSearch}
-                        onChange={event => setClienteSearch(event.target.value)}
-                        placeholder="Nome, CPF ou telefone do cliente..."
-                        className="w-full h-12 bg-[#0b0b0b] rounded-xl px-5 text-sm text-slate-200 placeholder-slate-700 border border-[#2a2a2a] focus:border-[#a100ff]/50 focus:outline-none transition-all"
-                      />
+                    <SearchInput
+                      value={clienteSearch}
+                      onChange={setClienteSearch}
+                      placeholder="Nome, CPF ou telefone do cliente..."
+                    />
                     </div>
 
                     <div className="mt-6 space-y-3">
@@ -589,12 +675,11 @@ export default function PedidosList() {
                         <Search className="w-4 h-4 text-[#a100ff]" />
                         <h3 className="text-xs font-bold text-white uppercase tracking-widest">Adicionar Itens</h3>
                       </div>
-                      <input
-                        type="text"
+                      <SearchInput
                         value={productSearch}
-                        onChange={event => setProductSearch(event.target.value)}
+                        onChange={setProductSearch}
                         placeholder="Nome ou SKU..."
-                        className="w-full h-11 bg-[#0b0b0b] rounded-xl px-4 text-sm text-slate-200 placeholder-slate-700 border border-[#2a2a2a] focus:border-[#a100ff]/50 focus:outline-none transition-all"
+                        className="h-11"
                       />
                     </div>
 
@@ -744,20 +829,20 @@ export default function PedidosList() {
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <Button 
                   onClick={() => createStep === 1 ? setScreen('list') : setCreateStep((createStep - 1) as CreateStep)} 
-                  className="flex-1 sm:flex-initial h-12 px-8 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 font-bold hover:bg-[#151515] hover:text-white transition-all"
+                  className="flex-1 sm:flex-initial h-12 px-8 rounded-xl bg-[#111111] hover:bg-[#161616] text-slate-300 hover:text-white border border-[#2a2a2a] hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors font-bold"
                 >
                   VOLTAR
                 </Button>
                 
                 {createStep === 2 && (
-                  <Button className="flex-1 sm:flex-initial h-12 px-8 rounded-xl bg-[#111111] border border-[#a100ff]/30 text-[#d8b4fe] font-bold hover:bg-[#a100ff]/10 hover:border-[#a100ff]/50 transition-all uppercase tracking-widest text-xs">
+                  <Button className="flex-1 sm:flex-initial h-12 px-8 rounded-xl bg-[#111111] hover:bg-[#161616] text-[#d8b4fe] hover:text-white border border-[#a100ff]/20 hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors uppercase tracking-widest text-xs font-bold">
                      <Plus className="w-4 h-4 mr-2" /> Itens
                   </Button>
                 )}
 
                 <Button 
                   onClick={() => createStep < 3 ? setCreateStep((createStep + 1) as CreateStep) : setScreen('detail')} 
-                  className="flex-1 sm:flex-initial h-12 px-10 rounded-xl bg-[#a100ff] text-white font-black hover:bg-[#b833ff] shadow-lg shadow-[#a100ff]/20 transition-all"
+                  className="flex-1 sm:flex-initial h-12 px-10 rounded-xl bg-[#a100ff] hover:bg-[#b933ff] text-white border border-[#a100ff] outline-none focus:outline-none focus:ring-0 transition-colors font-black"
                 >
                   {createStep === 3 ? 'SALVAR PEDIDO' : 'CONTINUAR'}
                   <ArrowRight className="w-4 h-4 ml-2" />
@@ -766,7 +851,7 @@ export default function PedidosList() {
             </div>
           </div>
         </div>
-      </div>
+      </PageLayout>
     );
   };
 
@@ -776,14 +861,14 @@ export default function PedidosList() {
     const isPago = selectedPedido.status === 'PAGO';
 
     return (
-      <div className="space-y-8 max-w-6xl mx-auto pb-20 animate-in fade-in duration-700">
+      <PageLayout className="animate-in fade-in duration-700">
         
         {/* Detail Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setScreen('list')} 
-              className="w-11 h-11 rounded-xl bg-[#0b0b0b] border border-[#2a2a2a] flex items-center justify-center text-slate-400 hover:text-white hover:border-[#a100ff]/40 transition-all shadow-xl"
+              className="w-11 h-11 rounded-xl bg-[#0b0b0b] border border-[#2a2a2a] flex items-center justify-center text-slate-400 hover:text-white hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -835,7 +920,13 @@ export default function PedidosList() {
                  <div className="w-8 h-8 rounded-full bg-[#151515] flex items-center justify-center text-slate-400">
                     <User className="w-4 h-4" />
                  </div>
-                 <div className="text-white font-bold text-sm truncate">{selectedPedido.cliente}</div>
+                 <button
+                    type="button"
+                    onClick={() => navigate('/clientes')}
+                    className="text-left text-white font-bold text-sm truncate hover:text-[#d8b4fe] transition-colors outline-none focus:outline-none focus:ring-0"
+                 >
+                    {selectedPedido.cliente}
+                 </button>
               </div>
            </div>
 
@@ -962,17 +1053,15 @@ export default function PedidosList() {
               {selectedPedido.status === 'FALHOU' && 'PRÓXIMO: Notificar suporte técnico.'}
            </div>
         </div>
-      </div>
+      </PageLayout>
     );
   };
 
   return (
-    <div className="min-h-screen bg-black text-slate-100 font-sans antialiased">
-      <div className="py-8 px-4 sm:px-6">
-        {screen === 'list' && renderListView()}
-        {screen === 'create' && renderCreateView()}
-        {screen === 'detail' && renderDetailView()}
-      </div>
+    <div className="text-slate-100 font-sans antialiased">
+      {screen === 'list' && renderListView()}
+      {screen === 'create' && renderCreateView()}
+      {screen === 'detail' && renderDetailView()}
     </div>
   );
 }

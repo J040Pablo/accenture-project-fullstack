@@ -1,4 +1,4 @@
-import { useMemo, useState, Fragment, type FC } from 'react';
+import { useMemo, useState, type FC } from 'react';
 import {
   Barcode,
   Box,
@@ -6,7 +6,6 @@ import {
   ChevronUp,
   Plus,
   Package,
-  Search,
   Trash2,
   X,
   DollarSign,
@@ -15,6 +14,11 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { PageLayout } from '../../components/ui/PageLayout';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { PageToolbar } from '../../components/ui/PageToolbar';
+import { PrimaryActionButton } from '../../components/ui/PrimaryActionButton';
+import { FilterDropdown, FilterGroup, FilterOption } from '../../components/ui/FilterDropdown';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,7 +67,7 @@ const mockProdutos: ProdutoMock[] = [
 // ─── Style helpers ────────────────────────────────────────────────────────────
 
 const inputClassName =
-  'w-full bg-[#111111] h-11 rounded-xl px-4 text-sm text-white placeholder-slate-600 border border-[#2a2a2a] focus:border-[#a100ff]/60 focus:outline-none transition-all';
+  'w-full bg-[#151515] border border-[#2a2a2a] h-11 rounded-xl px-4 text-sm text-white placeholder-slate-500 outline-none focus:outline-none focus:ring-0 focus:border-[#a100ff] transition-colors duration-200';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -72,6 +76,10 @@ const ProdutosList: FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'todos' | 'ativos' | 'inativos'>('todos');
+  const [stockFilter, setStockFilter] = useState<'todos' | 'pouco' | 'sem'>('todos');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
+
+  const categories = useMemo(() => Array.from(new Set(mockProdutos.map(p => p.categoria))), []);
 
   const toggleExpand = (id: string) => {
     setExpandedId(prev => (prev === id ? null : id));
@@ -94,14 +102,34 @@ const ProdutosList: FC = () => {
         (statusFilter === 'ativos' && produto.ativo) ||
         (statusFilter === 'inativos' && !produto.ativo);
 
-      return correspondeBusca && correspondeStatus;
+      // parse numeric stock from produto.estoque (e.g., '120 unidades')
+      const stockMatch = produto.estoque.match(/(\d+)/);
+      const stockNum = stockMatch ? parseInt(stockMatch[1], 10) : 0;
+
+      const correspondeStock =
+        stockFilter === 'todos' ||
+        (stockFilter === 'pouco' && stockNum > 0 && stockNum <= 10) ||
+        (stockFilter === 'sem' && stockNum === 0);
+
+      const correspondeCategoria = !categoryFilter || produto.categoria === categoryFilter;
+
+      return correspondeBusca && correspondeStatus && correspondeStock && correspondeCategoria;
     });
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, stockFilter, categoryFilter]);
 
   const limparFiltros = () => {
     setSearchTerm('');
     setStatusFilter('todos');
+    setStockFilter('todos');
+    setCategoryFilter('');
   };
+
+  // Count active filters for badge
+  const activeFiltersCount = [
+    statusFilter !== 'todos' ? 1 : 0,
+    stockFilter !== 'todos' ? 1 : 0,
+    categoryFilter !== '' ? 1 : 0
+  ].reduce((a, b) => a + b, 0);
 
   const renderProdutoForm = (mode: 'create' | 'edit') => {
     const isCreate = mode === 'create';
@@ -219,93 +247,104 @@ const ProdutosList: FC = () => {
   };
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-20">
-      
-      {/* 1. Header Premium */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-[#0b0b0b] border border-[#2a2a2a] flex items-center justify-center text-[#a100ff]">
-              <Package className="w-5 h-5" />
-            </div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">Produtos</h1>
-          </div>
-          <p className="text-slate-400 text-sm">Gerencie o catálogo, preços e níveis de estoque</p>
-        </div>
-
-        <Button
-          onClick={() => setShowCreateForm(prev => !prev)}
-          className={`h-11 px-6 rounded-xl font-black transition-all shadow-lg gap-2 ${
-            showCreateForm 
-              ? 'bg-[#111111] border border-[#2a2a2a] text-slate-400 hover:text-white' 
-              : 'bg-[#a100ff] text-white hover:bg-[#b833ff] shadow-[#a100ff]/20'
-          }`}
-        >
-          {showCreateForm ? (
-            <Fragment>
+    <PageLayout>
+      <PageHeader
+        title="Produtos"
+        subtitle="Gerencie o catálogo, preços e níveis de estoque"
+        icon={<Package className="w-5 h-5" />}
+        action={
+          showCreateForm ? (
+            <Button
+              onClick={() => setShowCreateForm(false)}
+              className="w-full md:w-auto h-11 px-6 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 font-black hover:text-white transition-all gap-2"
+            >
               <X className="w-4 h-4" />
               FECHAR CADASTRO
-            </Fragment>
+            </Button>
           ) : (
-            <Fragment>
+            <PrimaryActionButton onClick={() => setShowCreateForm(true)}>
               <Plus className="w-4 h-4" />
               CADASTRAR PRODUTO
-            </Fragment>
-          )}
-        </Button>
-      </div>
+            </PrimaryActionButton>
+          )
+        }
+      />
 
-      {/* 2. Barra de Busca e Filtros Integrados */}
-      <div className="rounded-[24px] bg-[#0b0b0b] border border-[#2a2a2a] p-2 flex flex-col lg:flex-row items-stretch lg:items-center gap-2">
-         <div className="relative flex-1">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={event => setSearchTerm(event.target.value)}
-              placeholder="Pesquisar por nome, SKU, categoria..."
-              className="w-full h-11 bg-transparent rounded-xl px-12 text-sm text-slate-200 placeholder-slate-700 border-none focus:outline-none"
-            />
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
-         </div>
-         
-         <div className="h-px lg:h-8 lg:w-px bg-[#1a1a1a] mx-2" />
+      <PageToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Pesquisar por nome, SKU, categoria..."
+        rightContent={
+          <div className="flex items-center gap-3">
+            <FilterDropdown activeFiltersCount={activeFiltersCount}>
+              {/* Status Filter */}
+              <FilterGroup title="Status">
+                {['Todos', 'Ativos', 'Inativos'].map((label) => {
+                  const value = label.toLowerCase() as 'todos' | 'ativos' | 'inativos';
+                  return (
+                    <FilterOption
+                      key={value}
+                      label={label}
+                      isActive={statusFilter === value}
+                      onClick={() => setStatusFilter(value)}
+                    />
+                  );
+                })}
+              </FilterGroup>
 
-         <div className="flex items-center gap-2 p-1">
-            {[
-              { id: 'todos', label: 'TODOS' },
-              { id: 'ativos', label: 'ATIVOS' },
-              { id: 'inativos', label: 'INATIVOS' }
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setStatusFilter(f.id as any)}
-                className={`flex-1 lg:flex-initial px-4 h-9 rounded-xl text-[10px] font-black tracking-widest transition-all ${
-                  statusFilter === f.id
-                    ? 'bg-[#a100ff] text-white shadow-inner'
-                    : 'text-slate-600 hover:text-slate-300 hover:bg-[#111111]'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-         </div>
+              {/* Stock Filter */}
+              <FilterGroup title="Estoque">
+                <FilterOption
+                  label="Todos"
+                  isActive={stockFilter === 'todos'}
+                  onClick={() => setStockFilter('todos')}
+                />
+                <FilterOption
+                  label="Pouco estoque"
+                  isActive={stockFilter === 'pouco'}
+                  onClick={() => setStockFilter('pouco')}
+                />
+                <FilterOption
+                  label="Sem estoque"
+                  isActive={stockFilter === 'sem'}
+                  onClick={() => setStockFilter('sem')}
+                />
+              </FilterGroup>
 
-         {(searchTerm || statusFilter !== 'todos') && (
-           <Fragment>
-             <div className="h-px lg:h-8 lg:w-px bg-[#1a1a1a] mx-2" />
-             <button
-               onClick={limparFiltros}
-               className="h-11 px-4 text-[10px] font-black text-[#d6a2b0] hover:text-white uppercase tracking-[0.2em] transition-colors"
-             >
-               Limpar
-             </button>
-           </Fragment>
-         )}
+              {/* Category Filter */}
+              <FilterGroup title="Categoria">
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#111111] border border-[#2a2a2a] text-slate-300 text-xs font-semibold focus:outline-none focus:border-[#a100ff] transition-all"
+                >
+                  <option value="">Todas as categorias</option>
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </FilterGroup>
 
-         <div className="lg:ml-auto px-6 h-11 hidden xl:flex items-center border-l border-[#1a1a1a] text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-            {produtosFiltrados.length} ENCONTRADOS
-         </div>
-      </div>
+              {/* Clear button */}
+              <div className="border-t border-[#1a1a1a] pt-4 mt-4">
+                <button
+                  onClick={limparFiltros}
+                  className="w-full px-3 py-2 rounded-lg bg-[#111111] border border-[#2a2a2a] text-slate-400 hover:text-slate-200 text-xs font-semibold transition-all"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            </FilterDropdown>
+
+            {/* Counter */}
+            <div className="flex items-center gap-2 px-4 h-12 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-500 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
+              {produtosFiltrados.length} encontrados
+            </div>
+          </div>
+        }
+      />
 
       {/* 3. Cadastro Form */}
       {showCreateForm && (
@@ -429,14 +468,7 @@ const ProdutosList: FC = () => {
                 <Box className="w-10 h-10" />
              </div>
              <h3 className="text-white font-black text-xl mb-2">Sem resultados de catálogo</h3>
-             <p className="text-slate-500 text-sm max-w-xs leading-relaxed">Não localizamos nenhum produto com os critérios "{searchTerm || statusFilter}".</p>
-             
-             <Button 
-                onClick={limparFiltros} 
-                className="mt-8 bg-[#111111] border border-[#a100ff]/30 text-[#d8b4fe] hover:bg-[#a100ff]/10 hover:border-[#a100ff]/50 px-8 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
-             >
-                Resetar Filtros
-             </Button>
+             <p className="text-slate-500 text-sm max-w-xs leading-relaxed">Tente ajustar sua busca ou filtros.</p>
           </div>
         )}
       </div>
@@ -451,7 +483,7 @@ const ProdutosList: FC = () => {
             Exibindo {produtosFiltrados.length} de {mockProdutos.length} unidades registradas
          </div>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

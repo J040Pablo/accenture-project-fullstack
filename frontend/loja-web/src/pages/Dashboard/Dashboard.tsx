@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Activity,
   AlertTriangle,
@@ -9,7 +11,6 @@ import {
   Package,
   Plus,
   RefreshCcw,
-  Search,
   TrendingUp,
   Users,
   Wallet,
@@ -17,6 +18,20 @@ import {
 } from 'lucide-react';
 import { RevenueChartCard } from '../../components/dashboard/RevenueChartCard';
 import { RiskAnalysisCard } from '../../components/dashboard/RiskAnalysisCard';
+import { PageLayout } from '../../components/ui/PageLayout';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { PageToolbar } from '../../components/ui/PageToolbar';
+import { PrimaryActionButton } from '../../components/ui/PrimaryActionButton';
+import { cn } from '../../utils';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '../../components/ui/Table';
+import { Card } from '../../components/ui/Card';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,51 +99,45 @@ const riskText: Record<RiskLevel, string> = {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function DashboardHeader() {
+  const navigate = useNavigate();
+
   return (
-    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-
-      {/* Left: title + status badges */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
-        <p className="text-sm text-slate-400">Visão geral da operação do e-commerce</p>
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#2a2a2a] bg-[#0f0f0f] text-xs text-slate-400">
-            {/* Tiny green dot is acceptable — it's semantic and very small */}
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-            Operação saudável
-          </span>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#2a2a2a] bg-[#0f0f0f] text-xs text-slate-500">
-            <RefreshCcw className="w-3 h-3 shrink-0" />
-            Atualizado agora
-          </span>
-        </div>
-      </div>
-
-      {/* Right: search + CTA */}
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Pesquisar no sistema"
-            className="pl-9 pr-4 h-10 w-52 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] text-sm text-slate-300 placeholder-slate-700 focus:outline-none focus:border-[#a100ff]/50 transition-colors"
-          />
-        </div>
-        <button className="inline-flex items-center gap-2 h-10 px-5 rounded-xl bg-[#a100ff] hover:bg-[#b833ff] text-white text-sm font-semibold transition-colors">
+    <PageHeader
+      title="Dashboard"
+      subtitle="Visão geral da operação do e-commerce"
+      icon={<Activity className="w-5 h-5" />}
+      action={
+        <PrimaryActionButton onClick={() => navigate('/pedidos')}>
           <Plus className="w-4 h-4" />
           Novo Pedido
-        </button>
-      </div>
+        </PrimaryActionButton>
+      }
+    />
+  );
+}
+
+function StatusBadges() {
+  return (
+    <div className="flex flex-wrap items-center gap-2 pt-1">
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#2a2a2a] bg-[#0f0f0f] text-xs text-slate-400">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+        Operação saudável
+      </span>
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#2a2a2a] bg-[#0f0f0f] text-xs text-slate-500">
+        <RefreshCcw className="w-3 h-3 shrink-0" />
+        Atualizado agora
+      </span>
     </div>
   );
 }
 
 function QuickActions() {
+  const navigate = useNavigate();
   const actions = [
-    { label: 'Novo Cliente', icon: Users    },
-    { label: 'Novo Produto', icon: Package  },
-    { label: 'Novo Pedido',  icon: Plus     },
-    { label: 'Ver Estoque',  icon: Activity },
+    { label: 'Novo Cliente', icon: Users, path: '/clientes' },
+    { label: 'Novo Produto', icon: Package, path: '/produtos' },
+    { label: 'Novo Pedido', icon: Plus, path: '/pedidos' },
+    { label: 'Ver Estoque', icon: Activity, path: '/produtos' },
   ];
   return (
     <div className="flex flex-wrap gap-2">
@@ -137,6 +146,8 @@ function QuickActions() {
         return (
           <button
             key={a.label}
+            type="button"
+            onClick={() => navigate(a.path)}
             className="inline-flex items-center gap-2 px-4 h-9 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] text-sm text-slate-400 hover:border-[#a100ff]/30 hover:text-[#d8b4fe] hover:bg-[#111111] transition-all duration-150"
           >
             <Icon className="w-3.5 h-3.5 text-[#a100ff]/60" />
@@ -169,33 +180,35 @@ function MetricCards() {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {metrics.map((m) => {
         const Icon = m.icon;
         return (
-          <div
+          <Card
             key={m.title}
-            className="group rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] p-5 hover:border-[#3a3a3a] transition-colors duration-200"
+            className="p-5 border-[#2a2a2a] bg-[#0b0b0b] hover:border-[#a100ff]/30 transition-all duration-300"
           >
             <div className="flex items-start justify-between mb-4">
-              <p className="text-[11px] text-slate-600 font-medium uppercase tracking-wide leading-tight pr-2">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-tight pr-2">
                 {m.title}
               </p>
-              <div className="w-8 h-8 rounded-xl border border-[#252525] bg-[#111111] flex items-center justify-center text-slate-600 group-hover:text-[#a100ff]/60 shrink-0 transition-colors">
+              <div className="w-9 h-9 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center text-slate-500 group-hover:text-[#a100ff] group-hover:border-[#a100ff]/20 shrink-0 transition-all duration-300">
                 <Icon className="w-4 h-4" />
               </div>
             </div>
 
-            <p className="text-2xl font-bold text-white tracking-tight mb-1">{m.value}</p>
-            <p className="text-[11px] text-slate-600">{m.description}</p>
+            <p className="text-2xl font-bold text-[#f8f5ff] tracking-tight mb-1">
+              {m.value}
+            </p>
+            <p className="text-[11px] text-slate-600 font-medium">{m.description}</p>
 
             {m.hint && (
               <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-[#1a1a1a]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#a100ff]/50 shrink-0" />
-                <span className="text-[11px] text-[#c4b5fd]/60">{m.hint}</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#a100ff] animate-pulse shrink-0" />
+                <span className="text-[10px] font-bold text-[#c4b5fd]/80 uppercase tracking-tighter">{m.hint}</span>
               </div>
             )}
-          </div>
+          </Card>
         );
       })}
     </div>
@@ -203,74 +216,85 @@ function MetricCards() {
 }
 
 function LatestOrders({ className }: { className?: string }) {
-  return (
-    <div className={`rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] overflow-hidden ${className ?? ''}`}>
+  const navigate = useNavigate();
 
+  return (
+    <Card className={cn("overflow-hidden flex flex-col", className)}>
       {/* Header */}
-      <div className="px-6 py-4 border-b border-[#1a1a1a] flex items-center justify-between gap-4">
+      <div className="px-6 py-4 border-b border-[#1a1a1a] flex items-center justify-between gap-4 bg-[#0d0d0d]">
         <div>
-          <p className="text-[11px] text-slate-500 mb-0.5">Operação em tempo real</p>
-          <h2 className="text-base font-semibold text-white">Últimos Pedidos</h2>
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-0.5">Operação em tempo real</p>
+          <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+            Últimos Pedidos
+            <span className="w-1.5 h-1.5 rounded-full bg-[#a100ff] animate-pulse" />
+          </h2>
         </div>
-        <button className="inline-flex items-center gap-1.5 text-xs text-[#a100ff] hover:text-white transition-colors">
-          Ver todos <ArrowRight className="w-3.5 h-3.5" />
+        <button
+          type="button"
+          onClick={() => navigate('/pedidos')}
+          className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-tighter text-[#a100ff] hover:text-white transition-colors group/link"
+        >
+          Ver todos <ArrowRight className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform" />
         </button>
       </div>
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[600px]">
-          <thead>
-            <tr className="border-b border-[#1a1a1a]">
-              {['Pedido', 'Cliente', 'Status', 'Valor', 'Risco', 'Data', ''].map((h) => (
-                <th key={h} className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-600">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#141414]">
+        <Table className="min-w-[600px]">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Pedido</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Valor</TableHead>
+              <TableHead>Risco</TableHead>
+              <TableHead>Data</TableHead>
+              <TableHead className="text-right"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {latestOrders.map((order) => {
               const ss = statusStyle[order.status];
               return (
-                <tr key={order.id} className="hover:bg-white/[0.015] transition-colors group">
-                  <td className="px-5 py-4 text-sm font-mono font-medium text-slate-300">{order.id}</td>
-                  <td className="px-5 py-4 text-sm text-slate-400">{order.cliente}</td>
-                  <td className="px-5 py-4">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-medium ${ss.badge}`}>
+                <TableRow key={order.id} className="group/row">
+                  <TableCell className="font-mono font-bold text-slate-400 group-hover/row:text-[#a100ff] transition-colors">{order.id}</TableCell>
+                  <TableCell className="text-sm font-medium text-slate-300">{order.cliente}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-tighter ${ss.dot.replace('bg-', 'text-')} ${ss.badge}`}>
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ss.dot}`} />
                       {order.status}
                     </span>
-                  </td>
-                  <td className="px-5 py-4 text-sm font-semibold text-white">{order.valor}</td>
-                  <td className={`px-5 py-4 text-sm ${riskText[order.risco]}`}>{order.risco}</td>
-                  <td className="px-5 py-4 text-xs text-slate-600">{order.data}</td>
-                  <td className="px-5 py-4 text-right">
-                    <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-[#1f1f1f] text-slate-600 hover:text-slate-300">
+                  </TableCell>
+                  <TableCell className="text-sm font-bold text-white">{order.valor}</TableCell>
+                  <TableCell className={cn("text-[11px] font-bold uppercase", riskText[order.risco])}>{order.risco}</TableCell>
+                  <TableCell className="text-[11px] font-medium text-slate-600">{order.data}</TableCell>
+                  <TableCell className="text-right">
+                    <button className="opacity-0 group-hover/row:opacity-100 transition-opacity p-2 rounded-xl hover:bg-white/[0.05] text-slate-600 hover:text-white">
                       <MoreHorizontal className="w-4 h-4" />
                     </button>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
-    </div>
+    </Card>
   );
 }
 
 function FinancialMovements() {
-  return (
-    <div className="rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] overflow-hidden flex flex-col">
+  const navigate = useNavigate();
 
+  return (
+    <Card className="overflow-hidden flex flex-col">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-[#1a1a1a] flex items-center justify-between gap-4">
+      <div className="px-6 py-4 border-b border-[#1a1a1a] flex items-center justify-between gap-4 bg-[#0d0d0d]">
         <div>
-          <p className="text-[11px] text-slate-500 mb-0.5">Fluxo de caixa recente</p>
-          <h2 className="text-base font-semibold text-white">Movimentações Financeiras</h2>
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-0.5">Fluxo de caixa recente</p>
+          <h2 className="text-base font-bold text-white tracking-tight">Movimentações</h2>
         </div>
-        <div className="w-9 h-9 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center text-[#a100ff]">
+        <div className="w-9 h-9 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center text-[#a100ff] shadow-inner">
           <Wallet className="w-4 h-4" />
         </div>
       </div>
@@ -280,16 +304,15 @@ function FinancialMovements() {
         {financialMovements.map((m, i) => {
           const Icon = m.icon;
           return (
-            <div key={i} className="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.015] transition-colors">
-              <div className="w-9 h-9 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center text-[#a100ff]/50 shrink-0">
+            <div key={i} className="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-all duration-200 group">
+              <div className="w-9 h-9 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center text-[#a100ff]/40 group-hover:text-[#a100ff]/70 group-hover:border-[#a100ff]/20 shrink-0 transition-all">
                 <Icon className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-300">{m.desc}</p>
-                <p className="text-[11px] text-slate-600 mt-0.5">Pedido {m.id}</p>
+                <p className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{m.desc}</p>
+                <p className="text-[10px] font-bold text-slate-600 mt-0.5 uppercase tracking-tighter">ID {m.id}</p>
               </div>
-              {/* Positive = light purple; negative = muted rose — both subtle */}
-              <p className={`text-sm font-semibold shrink-0 ${m.positive ? 'text-[#d8b4fe]' : 'text-rose-400/60'}`}>
+              <p className={`text-sm font-black shrink-0 tracking-tight ${m.positive ? 'text-[#d8b4fe]' : 'text-rose-400/50'}`}>
                 {m.valor}
               </p>
             </div>
@@ -298,26 +321,34 @@ function FinancialMovements() {
       </div>
 
       {/* Footer link */}
-      <div className="px-6 py-3.5 border-t border-[#1a1a1a]">
-        <button className="w-full flex items-center justify-center gap-2 text-xs text-slate-600 hover:text-slate-400 transition-colors">
-          Ver todas as movimentações <ArrowRight className="w-3.5 h-3.5" />
+      <div className="px-6 py-3.5 border-t border-[#1a1a1a] bg-[#0d0d0d]">
+        <button
+          type="button"
+          onClick={() => navigate('/contas')}
+          className="w-full flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:text-[#a100ff] transition-all group/footer"
+        >
+          Ver fluxo completo <ArrowRight className="w-3.5 h-3.5 group-hover/footer:translate-x-1 transition-transform" />
         </button>
       </div>
-    </div>
+    </Card>
   );
 }
 
 function LowStockProducts() {
-  return (
-    <div className="rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] overflow-hidden flex flex-col">
+  const navigate = useNavigate();
 
+  return (
+    <Card className="overflow-hidden flex flex-col">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-[#1a1a1a] flex items-center justify-between gap-4">
+      <div className="px-6 py-4 border-b border-[#1a1a1a] flex items-center justify-between gap-4 bg-[#0d0d0d]">
         <div>
-          <p className="text-[11px] text-slate-500 mb-0.5">Requer atenção</p>
-          <h2 className="text-base font-semibold text-white">Estoque Baixo</h2>
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-0.5">Requer atenção</p>
+          <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+            Estoque Crítico
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+          </h2>
         </div>
-        <div className="w-9 h-9 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center text-[#a100ff]/60">
+        <div className="w-9 h-9 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center text-rose-500/60 shadow-inner">
           <Package className="w-4 h-4" />
         </div>
       </div>
@@ -325,49 +356,82 @@ function LowStockProducts() {
       {/* List */}
       <div className="divide-y divide-[#141414] flex-1">
         {lowStockItems.map((p) => (
-          <div key={p.name} className="flex items-center justify-between px-6 py-3.5 hover:bg-white/[0.015] transition-colors">
+          <div key={p.name} className="flex items-center justify-between px-6 py-4 hover:bg-white/[0.02] transition-all group">
             <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-lg border border-[#252525] bg-[#111111] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center group-hover:border-[#a100ff]/20 group-hover:text-[#a100ff] transition-all">
                 <Package className="w-3.5 h-3.5 text-slate-600" />
               </div>
-              <span className="text-sm text-slate-300">{p.name}</span>
+              <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{p.name}</span>
             </div>
-            {/* ≤2 units gets a subtle purple pill; others get neutral slate */}
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-semibold ${
+            <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-tighter ${
               p.units <= 2
-                ? 'bg-[#a100ff]/[0.08] text-[#d8b4fe] border-[#a100ff]/20'
+                ? 'bg-rose-500/[0.08] text-rose-400 border-rose-500/20'
                 : 'bg-[#111111] text-slate-500 border-[#2a2a2a]'
             }`}>
-              {p.units} un.
+              {p.units} UN.
             </span>
           </div>
         ))}
       </div>
 
       {/* Footer link */}
-      <div className="px-6 py-3.5 border-t border-[#1a1a1a]">
-        <button className="w-full flex items-center justify-center gap-2 text-xs text-slate-600 hover:text-slate-400 transition-colors">
-          Ver estoque completo <ArrowRight className="w-3.5 h-3.5" />
+      <div className="px-6 py-3.5 border-t border-[#1a1a1a] bg-[#0d0d0d]">
+        <button
+          type="button"
+          onClick={() => navigate('/produtos')}
+          className="w-full flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:text-rose-400 transition-all group/footer"
+        >
+          Ver catálogo completo <ArrowRight className="w-3.5 h-3.5 group-hover/footer:translate-x-1 transition-transform" />
         </button>
       </div>
-    </div>
+    </Card>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-10">
+    <PageLayout>
 
       {/* 1. Header */}
       <DashboardHeader />
 
-      {/* 2. Quick actions */}
-      <QuickActions />
+      <PageToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Pesquisar no sistema"
+        rightContent={<QuickActions />}
+      />
+
+      {/* Status Indicators */}
+      <StatusBadges />
 
       {/* 3. Metric cards — 2 cols on mobile, 4 on desktop */}
       <MetricCards />
+
+      <div className="flex items-center justify-between gap-4 mt-2">
+        <div>
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-0.5">
+            Análise operacional
+          </p>
+          <h2 className="text-sm font-bold text-white tracking-tight">
+            Resumo de risco dos pedidos
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate('/analise-risco')}
+          className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-[#d8b4fe] transition-colors group/footer"
+        >
+          Ver análise completa
+          <ArrowRight className="w-3.5 h-3.5 group-hover/footer:translate-x-1 transition-transform" />
+        </button>
+      </div>
 
       {/* 4. Orders table (2/3) + Risk card (1/3) */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -384,6 +448,6 @@ export default function Dashboard() {
         <LowStockProducts />
       </div>
 
-    </div>
+    </PageLayout>
   );
 }
