@@ -5,6 +5,7 @@ import com.accenture.loja.produto.dto.ProdutoResponseDTO;
 import com.accenture.loja.produto.model.Produto;
 import com.accenture.loja.produto.repository.ProdutoRepository;
 import com.accenture.loja.shared.exception.BusinessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -281,21 +282,80 @@ class ProdutoServiceTest {
         produto.setId(PRODUTO_ID);
 
         when(produtoRepository.findById(PRODUTO_ID)).thenReturn(Optional.of(produto));
+        when(produtoRepository.save(any(Produto.class))).thenReturn(produto);
 
-        produtoService.inativar(PRODUTO_ID);
+        ProdutoResponseDTO response = produtoService.inativarProduto(PRODUTO_ID);
 
+        assertEquals(PRODUTO_ID, response.id());
         assertFalse(produto.getAtivo());
         verify(produtoRepository).findById(PRODUTO_ID);
+        verify(produtoRepository).save(produto);
+    }
+
+    @Test
+    void deveAtivarProduto() {
+        Produto produto = criarProduto("SKU-001", "Notebook", "Eletrônicos", BigDecimal.valueOf(3000), 10, false);
+        produto.setId(PRODUTO_ID);
+
+        when(produtoRepository.findById(PRODUTO_ID)).thenReturn(Optional.of(produto));
+        when(produtoRepository.save(any(Produto.class))).thenReturn(produto);
+
+        ProdutoResponseDTO response = produtoService.ativarProduto(PRODUTO_ID);
+
+        assertEquals(PRODUTO_ID, response.id());
+        assertTrue(produto.getAtivo());
+        verify(produtoRepository).findById(PRODUTO_ID);
+        verify(produtoRepository).save(produto);
     }
 
     @Test
     void deveLancarBusinessExceptionQuandoInativarProdutoInexistente() {
         when(produtoRepository.findById(PRODUTO_ID)).thenReturn(Optional.empty());
 
-        BusinessException exception = assertThrows(BusinessException.class, () -> produtoService.inativar(PRODUTO_ID));
+        BusinessException exception = assertThrows(BusinessException.class, () -> produtoService.inativarProduto(PRODUTO_ID));
 
         assertEquals("Produto não encontrado", exception.getMessage());
         verify(produtoRepository).findById(PRODUTO_ID);
+    }
+
+    @Test
+    void deveLancarBusinessExceptionQuandoAtivarProdutoInexistente() {
+        when(produtoRepository.findById(PRODUTO_ID)).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> produtoService.ativarProduto(PRODUTO_ID));
+
+        assertEquals("Produto não encontrado", exception.getMessage());
+        verify(produtoRepository).findById(PRODUTO_ID);
+    }
+
+    @Test
+    void deveExcluirProdutoComSucesso() {
+        Produto produto = criarProduto("SKU-001", "Notebook", "Eletrônicos", BigDecimal.valueOf(3000), 10, true);
+        produto.setId(PRODUTO_ID);
+
+        when(produtoRepository.findById(PRODUTO_ID)).thenReturn(Optional.of(produto));
+
+        produtoService.deletarProduto(PRODUTO_ID);
+
+        verify(produtoRepository).findById(PRODUTO_ID);
+        verify(produtoRepository).delete(produto);
+        verify(produtoRepository).flush();
+    }
+
+    @Test
+    void deveLancarBusinessExceptionQuandoExcluirProdutoComVinculo() {
+        Produto produto = criarProduto("SKU-001", "Notebook", "Eletrônicos", BigDecimal.valueOf(3000), 10, true);
+        produto.setId(PRODUTO_ID);
+
+        when(produtoRepository.findById(PRODUTO_ID)).thenReturn(Optional.of(produto));
+        org.mockito.Mockito.doThrow(new DataIntegrityViolationException("fk"))
+                .when(produtoRepository).delete(produto);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> produtoService.deletarProduto(PRODUTO_ID));
+
+        assertEquals("Produto não pode ser excluído pois possui vínculo com pedidos. Inative o produto em vez de excluir.", exception.getMessage());
+        verify(produtoRepository).findById(PRODUTO_ID);
+        verify(produtoRepository).delete(produto);
     }
 
     @Test
