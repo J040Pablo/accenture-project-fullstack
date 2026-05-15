@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -32,6 +32,10 @@ import {
   TableRow 
 } from '../../components/ui/Table';
 import { Card } from '../../components/ui/Card';
+import { contaService } from '../../services/contaService';
+import { movimentacaoService } from '../../services/movimentacaoService';
+import type { Conta } from '../../types/Conta';
+import type { Movimentacao } from '../../types/Movimentacao';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,14 +49,6 @@ interface Order {
   valor: string;
   risco: RiskLevel;
   data: string;
-}
-
-interface Movement {
-  id: string;
-  desc: string;
-  valor: string;
-  positive: boolean;
-  icon: React.ElementType;
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -72,11 +68,48 @@ const lowStockItems = [
   { name: 'Coca Cola 2L',      units: 4 },
 ];
 
-const financialMovements: Movement[] = [
-  { id: '#1021', desc: 'Pagamento do pedido', valor: '+R$ 320,00', positive: true,  icon: CreditCard },
-  { id: '#1019', desc: 'Estorno do pedido',   valor: '−R$ 90,00',  positive: false, icon: RefreshCcw },
-  { id: '#1018', desc: 'Pagamento do pedido', valor: '+R$ 250,00', positive: true,  icon: CreditCard },
-];
+function useDashboardData() {
+  const [contas, setContas] = useState<Conta[]>([]);
+  const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function carregarDados() {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const [contasResponse, movimentacoesResponse] = await Promise.allSettled([
+          contaService.listar(),
+          movimentacaoService.listar(),
+        ]);
+
+        if (contasResponse.status === 'fulfilled') {
+          setContas(contasResponse.value.data);
+        }
+
+        if (movimentacoesResponse.status === 'fulfilled') {
+          setMovimentacoes(movimentacoesResponse.value.data);
+        }
+
+        if (contasResponse.status === 'rejected' && movimentacoesResponse.status === 'rejected') {
+          setError('Não foi possível carregar os dados do dashboard.');
+        } else if (contasResponse.status === 'rejected') {
+          setError('Não foi possível carregar as contas.');
+        } else if (movimentacoesResponse.status === 'rejected') {
+          setError('Não foi possível carregar as movimentações.');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    carregarDados();
+  }, []);
+
+  return { contas, movimentacoes, isLoading, error };
+}
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
 
@@ -167,16 +200,19 @@ interface MetricDef {
   hint?: string;
 }
 
-function MetricCards() {
+function MetricCards({ contas, isLoading, error }: { contas: Conta[]; isLoading: boolean; error: string | null }) {
+  const empresa = contas.find((conta) => conta.tipoTitular === 'EMPRESA');
+  const saldoEmpresa = !error && empresa ? `R$ ${empresa.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '--';
+
   const metrics: MetricDef[] = [
-    { title: 'Saldo da Empresa',      value: 'R$ 12.500', description: 'Disponível na conta principal',       icon: Wallet,       hint: undefined     },
-    { title: 'Pedidos Pagos',         value: '24',         description: 'Pedidos finalizados no período',      icon: CheckCircle2, hint: undefined     },
-    { title: 'Pedidos Pendentes',     value: '8',          description: 'Aguardando reserva ou pagamento',     icon: Clock,        hint: 'Requer atenção' },
-    { title: 'Estoque Baixo',         value: '5',          description: 'Produtos com reposição necessária',   icon: Package,      hint: 'Verificar hoje' },
-    { title: 'Clientes Cadastrados',  value: '142',        description: 'Total de clientes na base',           icon: Users,        hint: undefined     },
-    { title: 'Faturamento do Mês',    value: 'R$ 31.200',  description: 'Receita total do mês atual',          icon: TrendingUp,   hint: undefined     },
-    { title: 'Pedidos Cancelados',    value: '3',          description: 'Cancelamentos no período',            icon: XCircle,      hint: undefined     },
-    { title: 'Risco Médio',           value: '16,7%',      description: 'Pedidos com risco médio ou alto',     icon: AlertTriangle,hint: undefined     },
+    { title: 'Saldo da Empresa',      value: isLoading ? '...' : saldoEmpresa, description: 'Disponível na conta principal',       icon: Wallet,       hint: undefined     },
+    { title: 'Pedidos Pagos',         value: '--',         description: 'Pedidos finalizados no período',      icon: CheckCircle2, hint: undefined     },
+    { title: 'Pedidos Pendentes',     value: '--',          description: 'Aguardando reserva ou pagamento',     icon: Clock,        hint: 'Requer atenção' },
+    { title: 'Estoque Baixo',         value: '--',          description: 'Produtos com reposição necessária',   icon: Package,      hint: 'Verificar hoje' },
+    { title: 'Clientes Cadastrados',  value: '--',        description: 'Total de clientes na base',           icon: Users,        hint: undefined     },
+    { title: 'Faturamento do Mês',    value: '--',  description: 'Receita total do mês atual',          icon: TrendingUp,   hint: undefined     },
+    { title: 'Pedidos Cancelados',    value: '--',          description: 'Cancelamentos no período',            icon: XCircle,      hint: undefined     },
+    { title: 'Risco Médio',           value: '--',      description: 'Pedidos com risco médio ou alto',     icon: AlertTriangle,hint: undefined     },
   ];
 
   return (
@@ -283,7 +319,7 @@ function LatestOrders({ className }: { className?: string }) {
   );
 }
 
-function FinancialMovements() {
+function FinancialMovements({ movimentacoes, isLoading, error }: { movimentacoes: Movimentacao[]; isLoading: boolean; error: string | null }) {
   const navigate = useNavigate();
 
   return (
@@ -301,23 +337,28 @@ function FinancialMovements() {
 
       {/* Rows */}
       <div className="divide-y divide-[#141414] flex-1">
-        {financialMovements.map((m, i) => {
-          const Icon = m.icon;
-          return (
-            <div key={i} className="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-all duration-200 group">
+        {isLoading ? (
+          <div className="px-6 py-4 text-slate-400">Carregando movimentações...</div>
+        ) : error ? (
+          <div className="px-6 py-4 text-[#d6a2b0]">{error}</div>
+        ) : movimentacoes.length === 0 ? (
+          <div className="px-6 py-4 text-slate-500">Nenhuma movimentação encontrada.</div>
+        ) : (
+          movimentacoes.slice(0, 5).map((m) => (
+            <div key={m.id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-all duration-200 group">
               <div className="w-9 h-9 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center text-[#a100ff]/40 group-hover:text-[#a100ff]/70 group-hover:border-[#a100ff]/20 shrink-0 transition-all">
-                <Icon className="w-4 h-4" />
+                <CreditCard className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{m.desc}</p>
+                <p className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{m.descricao}</p>
                 <p className="text-[10px] font-bold text-slate-600 mt-0.5 uppercase tracking-tighter">ID {m.id}</p>
               </div>
-              <p className={`text-sm font-black shrink-0 tracking-tight ${m.positive ? 'text-[#d8b4fe]' : 'text-rose-400/50'}`}>
-                {m.valor}
+              <p className={`text-sm font-black shrink-0 tracking-tight ${m.valor > 0 ? 'text-[#d8b4fe]' : 'text-rose-400/50'}`}>
+                {m.valor > 0 ? '+' : '-'}R$ {Math.abs(m.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
 
       {/* Footer link */}
@@ -393,6 +434,7 @@ function LowStockProducts() {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const { contas, movimentacoes, isLoading, error } = useDashboardData();
 
   return (
     <PageLayout>
@@ -411,7 +453,7 @@ export default function Dashboard() {
       <StatusBadges />
 
       {/* 3. Metric cards — 2 cols on mobile, 4 on desktop */}
-      <MetricCards />
+      <MetricCards contas={contas} isLoading={isLoading} error={error} />
 
       <div className="flex items-center justify-between gap-4 mt-2">
         <div>
@@ -444,7 +486,7 @@ export default function Dashboard() {
 
       {/* 6. Financial movements + Low stock */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <FinancialMovements />
+        <FinancialMovements movimentacoes={movimentacoes} isLoading={isLoading} error={error} />
         <LowStockProducts />
       </div>
 
