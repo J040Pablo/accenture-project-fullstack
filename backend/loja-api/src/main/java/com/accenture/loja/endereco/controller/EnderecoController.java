@@ -12,42 +12,43 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/enderecos")
+@RequestMapping("/api/enderecos")
 @RequiredArgsConstructor
 public class EnderecoController {
 
-	private final EnderecoService enderecoService;
-	private final ViaCepService viaCepService;
+    private final EnderecoService enderecoService;
+    private final ViaCepService viaCepService;
 
-	@GetMapping
-	public List<EnderecoResponseDTO> listar() {
-		return enderecoService.listar();
-	}
+    @GetMapping
+    public List<EnderecoResponseDTO> listar() {
+        return enderecoService.listar();
+    }
 
-	@GetMapping("/{id}")
-	public EnderecoResponseDTO buscarPorId(@PathVariable Long id) {
-		return enderecoService.buscarPorId(id);
-	}
+    @GetMapping("/{id}")
+    public EnderecoResponseDTO buscarPorId(@PathVariable Long id) {
+        return enderecoService.buscarPorId(id);
+    }
 
-	@PostMapping
-	public EnderecoResponseDTO salvar(@RequestBody @Valid EnderecoRequestDTO dto) {
+    @PostMapping
+    public EnderecoResponseDTO salvar(@RequestBody @Valid EnderecoRequestDTO dto) {
+        return enderecoService.salvar(dto);
+    }
 
-		return enderecoService.salvar(dto);
-	}
+    @PutMapping("/{id}")
+    public EnderecoResponseDTO atualizar(
+            @PathVariable Long id,
+            @RequestBody @Valid EnderecoRequestDTO dto
+    ) {
+        return enderecoService.atualizar(id, dto);
+    }
 
-	@PutMapping("/{id}")
-	public EnderecoResponseDTO atualizar(@PathVariable Long id, @RequestBody @Valid EnderecoRequestDTO dto) {
+    @DeleteMapping("/{id}")
+    public void deletar(@PathVariable Long id) {
+        enderecoService.deletar(id);
+    }
 
-		return enderecoService.atualizar(id, dto);
-	}
-
-	@DeleteMapping("/{id}")
-	public void deletar(@PathVariable Long id) {
-		enderecoService.deletar(id);
-	}
-
-	@GetMapping("/cep/{cep}")
-	public ViaCepResponseDTO buscarCep(@PathVariable String cep) {
-		return viaCepService.buscarCep(cep);
-	}
+    @GetMapping("/cep/{cep}")
+    public ViaCepResponseDTO buscarCep(@PathVariable String cep) {
+        return viaCepService.buscarCep(cep);
+    }
 }
