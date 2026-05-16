@@ -4,16 +4,20 @@ export interface Endereco {
   numero: string;
   complemento?: string;
   rua?: string;
+  logradouro?: string;
   bairro?: string;
   cidade?: string;
+  localidade?: string;
   uf?: string;
 }
 
 export interface ViaCepResponse {
-  cep: string;
-  logradouro: string;
-  bairro: string;
-  localidade: string;
-  uf: string;
+  cep?: string;
+  logradouro?: string;
+  localidade?: string;
+  rua?: string;
+  cidade?: string;
+  bairro?: string;
+  uf?: string;
   erro?: boolean;
 }

@@ -15,6 +15,14 @@ public class EnderecoRequestDTO {
     @Pattern(regexp = "\\d{8}", message = "CEP deve conter 8 dígitos.")
     private String cep;
 
+    private String rua;
+
+    private String bairro;
+
+    private String cidade;
+
+    private String uf;
+
     @NotBlank(message = "O número é obrigatório.")
     private String numero;
 

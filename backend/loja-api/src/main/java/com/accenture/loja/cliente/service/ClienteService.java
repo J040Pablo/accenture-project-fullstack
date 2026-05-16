@@ -107,10 +107,30 @@ public class ClienteService {
         }
 
         endereco.setCep(viaCep.getCep());
-        endereco.setRua(viaCep.getLogradouro());
-        endereco.setBairro(viaCep.getBairro());
-        endereco.setCidade(viaCep.getLocalidade());
-        endereco.setUf(viaCep.getUf());
+        String ruaFinal = viaCep.getLogradouro();
+        if (ruaFinal == null || ruaFinal.isBlank()) {
+            ruaFinal = dto.getEndereco().getRua();
+        }
+
+        String bairroFinal = viaCep.getBairro();
+        if (bairroFinal == null || bairroFinal.isBlank()) {
+            bairroFinal = dto.getEndereco().getBairro();
+        }
+
+        String cidadeFinal = viaCep.getLocalidade();
+        if (cidadeFinal == null || cidadeFinal.isBlank()) {
+            cidadeFinal = dto.getEndereco().getCidade();
+        }
+
+        String ufFinal = viaCep.getUf();
+        if (ufFinal == null || ufFinal.isBlank()) {
+            ufFinal = dto.getEndereco().getUf();
+        }
+
+        endereco.setRua(ruaFinal);
+        endereco.setBairro(bairroFinal);
+        endereco.setCidade(cidadeFinal);
+        endereco.setUf(ufFinal);
         endereco.setNumero(dto.getEndereco().getNumero());
         endereco.setComplemento(dto.getEndereco().getComplemento());
 
@@ -186,12 +206,32 @@ public class ClienteService {
             throw new BusinessException("CEP não encontrado");
         }
 
+        String ruaFinal = viaCep.getLogradouro();
+        if (ruaFinal == null || ruaFinal.isBlank()) {
+            ruaFinal = dto.getEndereco().getRua();
+        }
+
+        String bairroFinal = viaCep.getBairro();
+        if (bairroFinal == null || bairroFinal.isBlank()) {
+            bairroFinal = dto.getEndereco().getBairro();
+        }
+
+        String cidadeFinal = viaCep.getLocalidade();
+        if (cidadeFinal == null || cidadeFinal.isBlank()) {
+            cidadeFinal = dto.getEndereco().getCidade();
+        }
+
+        String ufFinal = viaCep.getUf();
+        if (ufFinal == null || ufFinal.isBlank()) {
+            ufFinal = dto.getEndereco().getUf();
+        }
+
         return Endereco.builder()
                 .cep(viaCep.getCep())
-                .rua(viaCep.getLogradouro())
-                .bairro(viaCep.getBairro())
-                .cidade(viaCep.getLocalidade())
-                .uf(viaCep.getUf())
+                .rua(ruaFinal)
+                .bairro(bairroFinal)
+                .cidade(cidadeFinal)
+                .uf(ufFinal)
                 .numero(dto.getEndereco().getNumero())
                 .complemento(dto.getEndereco().getComplemento())
                 .build();

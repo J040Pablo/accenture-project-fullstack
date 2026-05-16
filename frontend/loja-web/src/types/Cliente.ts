@@ -16,13 +16,19 @@ export interface Cliente {
   contaCorrente?: ContaCorrente;
 }
 
+export type EnderecoRequest = {
+  cep: string;
+  rua?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+  numero: string;
+  complemento?: string;
+};
+
 export interface ClienteRequest {
   nome: string;
   cpf: string;
   email: string;
-  endereco: {
-    cep: string;
-    numero: string;
-    complemento?: string;
-  };
+  endereco: EnderecoRequest;
 }

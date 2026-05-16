@@ -11,7 +11,8 @@ import {
   DollarSign,
   Layers,
   Archive,
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { PageLayout } from '../../components/ui/PageLayout';
@@ -26,7 +27,8 @@ import {
   excluirProduto,
   ativarProduto,
   inativarProduto,
-  type ProdutoPayload
+  type ProdutoPayload,
+  extrairErroProduto
 } from '../../services/produtoService';
 import type { Produto } from '../../types/Produto';
 
@@ -45,6 +47,15 @@ const produtoInicial: ProdutoPayload = {
   preco: 0,
   estoque: 0
 };
+
+// Tipo para erros de campo
+interface ErrosCampo {
+  sku?: string;
+  nome?: string;
+  categoria?: string;
+  preco?: string;
+  estoque?: string;
+}
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
 
@@ -80,10 +91,6 @@ function normalizarSku(valor: string): string {
 
   return `${letras}-${numeros.padStart(6, '0')}`;
 }
-
-function validarSku(sku: string): boolean {
-  return /^[A-Z]{3}-\d{6}$/.test(sku);
-}
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const ProdutosList: FC = () => {
@@ -99,6 +106,12 @@ const ProdutosList: FC = () => {
   const [statusFilter, setStatusFilter] = useState<'todos' | 'ativos' | 'inativos'>('todos');
   const [stockFilter, setStockFilter] = useState<'todos' | 'pouco' | 'sem'>('todos');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
+
+  // Estados para validação de formulário
+  const [errosCriacao, setErrosCriacao] = useState<ErrosCampo>({});
+  const [errosEdicao, setErrosEdicao] = useState<ErrosCampo>({});
+  const [erroGeralCriacao, setErroGeralCriacao] = useState<string | null>(null);
+  const [erroGeralEdicao, setErroGeralEdicao] = useState<string | null>(null);
 
   async function carregarProdutos() {
     try {
@@ -134,19 +147,51 @@ const ProdutosList: FC = () => {
         [campo]: campo === 'preco' || campo === 'estoque' ? Number(valor) : valor
       };
     });
+
+    // Limpar erro do campo correspondente
+    if (produtoEditando) {
+      setErrosEdicao((prev) => ({
+        ...prev,
+        [campo]: undefined
+      }));
+    } else {
+      setErrosCriacao((prev) => ({
+        ...prev,
+        [campo]: undefined
+      }));
+    }
   }
 
-  function validarProduto(produto: ProdutoPayload): string | null {
-    if (!produto.nome.trim()) return 'Nome é obrigatório.';
-    const skuNormalizado = normalizarSku(produto.sku);
-    if (!skuNormalizado) return 'SKU deve seguir o padrão AAA-000000.';
-    if (!validarSku(skuNormalizado)) return 'SKU deve seguir o padrão AAA-000000.';
-    
-    if (!produto.categoria.trim()) return 'Categoria é obrigatória.';
-    if (produto.preco <= 0) return 'Preço deve ser maior que zero.';
-    if (produto.estoque < 0) return 'Estoque não pode ser negativo.';
+  function validarProduto(produto: ProdutoPayload): ErrosCampo {
+    const erros: ErrosCampo = {};
 
-    return null;
+    // Validar Nome
+    if (!produto.nome.trim()) {
+      erros.nome = 'Nome é obrigatório.';
+    }
+
+    // Validar SKU
+    const skuNormalizado = normalizarSku(produto.sku);
+    if (!skuNormalizado) {
+      erros.sku = 'SKU deve seguir o padrão AAA-000000.';
+    }
+
+    // Validar Categoria
+    if (!produto.categoria.trim()) {
+      erros.categoria = 'Categoria é obrigatória.';
+    }
+
+    // Validar Preço
+    if (produto.preco <= 0) {
+      erros.preco = 'Preço deve ser maior que zero.';
+    }
+
+    // Validar Estoque
+    if (produto.estoque < 0) {
+      erros.estoque = 'Estoque não pode ser negativo.';
+    }
+
+    return erros;
   }
 
   function cancelarFormulario() {
@@ -154,6 +199,10 @@ const ProdutosList: FC = () => {
     setProdutoEditando(null);
     setFormProduto(produtoInicial);
     setExpandedId(null);
+    setErrosCriacao({});
+    setErrosEdicao({});
+    setErroGeralCriacao(null);
+    setErroGeralEdicao(null);
   }
 
   function iniciarEdicao(produto: Produto) {
@@ -184,15 +233,18 @@ const ProdutosList: FC = () => {
 
   async function handleCadastrarProduto() {
     try {
-      const erroValidacao = validarProduto(formProduto);
+      // Validar localmente
+      const errosValidacao = validarProduto(formProduto);
 
-      if (erroValidacao) {
-        toast.warning(erroValidacao);
+      if (Object.keys(errosValidacao).length > 0) {
+        setErrosCriacao(errosValidacao);
         return;
       }
 
+      // Limpar erros anteriores
+      setErrosCriacao({});
+      setErroGeralCriacao(null);
       setSalvando(true);
-      setErro(null);
 
       const payload: ProdutoPayload = {
         ...formProduto,
@@ -208,7 +260,30 @@ const ProdutosList: FC = () => {
         
     } catch (error) {
       console.error(error);
-      toast.error('Erro ao cadastrar produto.');
+      
+      // Extrair erros do backend
+      const erroResposta = extrairErroProduto(error);
+      
+      if (erroResposta.errosCampo.length > 0) {
+        // Mapear erros por campo
+        const errosPorCampo: ErrosCampo = {};
+        erroResposta.errosCampo.forEach(({ campo, mensagem }) => {
+          // Apenas adicionar erro se for um campo de entrada (não ativo)
+          if (campo !== 'ativo') {
+            errosPorCampo[campo] = mensagem;
+          }
+        });
+        setErrosCriacao(errosPorCampo);
+      }
+
+      // Se houver mensagem geral, exibir no topo ou toast
+      if (erroResposta.mensagemGeral) {
+        if (erroResposta.statusCode && erroResposta.statusCode >= 500) {
+          toast.error(erroResposta.mensagemGeral);
+        } else {
+          setErroGeralCriacao(erroResposta.mensagemGeral);
+        }
+      }
     } finally {
       setSalvando(false);
     }
@@ -218,15 +293,18 @@ const ProdutosList: FC = () => {
     if (!produtoEditando) return;
 
     try {
-      const erroValidacao = validarProduto(formProduto);
+      // Validar localmente
+      const errosValidacao = validarProduto(formProduto);
 
-      if (erroValidacao) {
-        toast.warning(erroValidacao);
+      if (Object.keys(errosValidacao).length > 0) {
+        setErrosEdicao(errosValidacao);
         return;
       }
 
+      // Limpar erros anteriores
+      setErrosEdicao({});
+      setErroGeralEdicao(null);
       setSalvando(true);
-      setErro(null);
 
       const payload: ProdutoPayload = {
         ...formProduto,
@@ -242,7 +320,30 @@ const ProdutosList: FC = () => {
         
     } catch (error) {
       console.error(error);
-      toast.error('Erro ao atualizar produto.');
+      
+      // Extrair erros do backend
+      const erroResposta = extrairErroProduto(error);
+      
+      if (erroResposta.errosCampo.length > 0) {
+        // Mapear erros por campo
+        const errosPorCampo: ErrosCampo = {};
+        erroResposta.errosCampo.forEach(({ campo, mensagem }) => {
+          // Apenas adicionar erro se for um campo de entrada (não ativo)
+          if (campo !== 'ativo') {
+            errosPorCampo[campo] = mensagem;
+          }
+        });
+        setErrosEdicao(errosPorCampo);
+      }
+
+      // Se houver mensagem geral, exibir no topo ou toast
+      if (erroResposta.mensagemGeral) {
+        if (erroResposta.statusCode && erroResposta.statusCode >= 500) {
+          toast.error(erroResposta.mensagemGeral);
+        } else {
+          setErroGeralEdicao(erroResposta.mensagemGeral);
+        }
+      }
     } finally {
       setSalvando(false);
     }
@@ -272,11 +373,20 @@ const ProdutosList: FC = () => {
       setProdutoEditando(null);
       setExpandedId(null);
       setFormProduto(produtoInicial);
+      setErrosCriacao({});
+      setErrosEdicao({});
+      setErroGeralCriacao(null);
+      setErroGeralEdicao(null);
       await carregarProdutos();
         
     } catch (error) {
       console.error(error);
-      toast.error(ativo ? 'Erro ao ativar produto.' : 'Erro ao inativar produto.');
+      const erroResposta = extrairErroProduto(error);
+      if (erroResposta.statusCode && erroResposta.statusCode >= 500) {
+        toast.error(erroResposta.mensagemGeral || (ativo ? 'Erro ao ativar produto.' : 'Erro ao inativar produto.'));
+      } else {
+        toast.error(ativo ? 'Erro ao ativar produto.' : 'Erro ao inativar produto.');
+      }
     } finally {
       setSalvando(false);
     }
@@ -298,13 +408,22 @@ const ProdutosList: FC = () => {
       setProdutoEditando(null);
       setExpandedId(null);
       setFormProduto(produtoInicial);
+      setErrosCriacao({});
+      setErrosEdicao({});
+      setErroGeralCriacao(null);
+      setErroGeralEdicao(null);
 
       toast.success('Produto excluído com sucesso.');
       await carregarProdutos();
         
     } catch (error) {
       console.error(error);
-      toast.error('Erro ao excluir produto. Se ele possuir vínculo com pedidos, inative em vez de excluir.');
+      const erroResposta = extrairErroProduto(error);
+      if (erroResposta.statusCode && erroResposta.statusCode >= 500) {
+        toast.error(erroResposta.mensagemGeral || 'Erro ao excluir produto.');
+      } else {
+        toast.error('Erro ao excluir produto. Se ele possuir vínculo com pedidos, inative em vez de excluir.');
+      }
     } finally {
       setSalvando(false);
     }
@@ -373,9 +492,20 @@ const ProdutosList: FC = () => {
   const renderProdutoForm = (mode: 'create' | 'edit') => {
     const isCreate = mode === 'create';
     const isEdit = !isCreate;
+    const erros = isCreate ? errosCriacao : errosEdicao;
+    const erroGeral = isCreate ? erroGeralCriacao : erroGeralEdicao;
 
     return (
       <div className={isCreate ? 'p-8' : 'p-8 bg-[#0b0b0b] border-t border-[#1a1a1a]'}>
+        {erroGeral && (
+          <div className="mb-6 p-4 rounded-xl bg-red-950/20 border border-red-800/40 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-red-400">{erroGeral}</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
           
           <div className="space-y-8">
@@ -399,8 +529,11 @@ const ProdutosList: FC = () => {
                      value={formProduto.nome}
                      onChange={(e) => handleChangeProduto('nome', e.target.value)}
                      placeholder="Ex: Batata Lavada"
-                     className={inputClassName}
+                     className={`${inputClassName} ${erros.nome ? 'border-red-500 focus:border-red-500' : ''}`}
                    />
+                   {erros.nome && (
+                     <p className="text-[10px] text-red-500 ml-1 font-medium">{erros.nome}</p>
+                   )}
                 </div>
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">SKU do Produto</label>
@@ -416,11 +549,15 @@ const ProdutosList: FC = () => {
                      }
                      placeholder="SKU-000001"
                      maxLength={10}
-                     className={inputClassName}
+                     className={`${inputClassName} ${erros.sku ? 'border-red-500 focus:border-red-500' : ''}`}
                    />
-                   <p className="text-[10px] text-slate-600 ml-1">
-                     Padrão: 3 letras + hífen + 6 números. Ex: SKU-000123.
-                   </p>
+                   {erros.sku ? (
+                     <p className="text-[10px] text-red-500 ml-1 font-medium">{erros.sku}</p>
+                   ) : (
+                     <p className="text-[10px] text-slate-600 ml-1">
+                       Padrão: 3 letras + hífen + 6 números. Ex: SKU-000123.
+                     </p>
+                   )}
                 </div>
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Categoria</label>
@@ -429,8 +566,11 @@ const ProdutosList: FC = () => {
                      value={formProduto.categoria}
                      onChange={(e) => handleChangeProduto('categoria', e.target.value)}
                      placeholder="Ex: Hortifruti"
-                     className={inputClassName}
+                     className={`${inputClassName} ${erros.categoria ? 'border-red-500 focus:border-red-500' : ''}`}
                    />
+                   {erros.categoria && (
+                     <p className="text-[10px] text-red-500 ml-1 font-medium">{erros.categoria}</p>
+                   )}
                 </div>
               </div>
             </section>
@@ -457,8 +597,11 @@ const ProdutosList: FC = () => {
                      value={formProduto.preco}
                      onChange={(e) => handleChangeProduto('preco', e.target.value)}
                      placeholder="0,00"
-                     className={inputClassName}
+                     className={`${inputClassName} ${erros.preco ? 'border-red-500 focus:border-red-500' : ''}`}
                    />
+                   {erros.preco && (
+                     <p className="text-[10px] text-red-500 ml-1 font-medium">{erros.preco}</p>
+                   )}
                 </div>
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Estoque Inicial</label>
@@ -469,8 +612,11 @@ const ProdutosList: FC = () => {
                      value={formProduto.estoque}
                      onChange={(e) => handleChangeProduto('estoque', e.target.value)}
                      placeholder="Ex: 100 unidades"
-                     className={inputClassName}
+                     className={`${inputClassName} ${erros.estoque ? 'border-red-500 focus:border-red-500' : ''}`}
                    />
+                   {erros.estoque && (
+                     <p className="text-[10px] text-red-500 ml-1 font-medium">{erros.estoque}</p>
+                   )}
                 </div>
               </div>
             </section>

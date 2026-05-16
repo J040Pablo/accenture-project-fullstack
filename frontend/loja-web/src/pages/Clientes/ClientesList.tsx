@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-import { clienteService } from '../../services/clienteService';
+import { toast } from 'react-toastify';
+import { clienteService, extrairErroCliente, type ClienteApiErrorInfo } from '../../services/clienteService';
 import { enderecoService } from '../../services/enderecoService';
 import type { Cliente, ClienteRequest } from '../../types/Cliente';
 import {
@@ -35,8 +36,28 @@ const inputReadonlyClassName =
 
 //  Helpers 
 
-const stripCpf = (v: string) => v.replace(/\D/g, '');
-const stripCep = (v: string) => v.replace(/\D/g, '');
+const stripCpf = (v: string) => v.replace(/\D/g, '').slice(0, 11);
+const stripCep = (v: string) => v.replace(/\D/g, '').slice(0, 8);
+
+const formatCpf = (value: string): string => {
+  const digits = stripCpf(value);
+
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) {
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  }
+
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+};
+
+const formatCep = (value: string): string => {
+  const digits = stripCep(value);
+
+  if (digits.length <= 5) return digits;
+
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+};
 const formatSaldo = (saldo?: number) =>
   saldo != null
     ? saldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -44,6 +65,112 @@ const formatSaldo = (saldo?: number) =>
 
 const emptyForm = { nome: '', cpf: '', email: '', cep: '', numero: '', complemento: '' };
 const emptyAddress = { rua: '', bairro: '', cidade: '', uf: '' };
+
+type ClienteFormErrors = {
+  nome?: string;
+  cpf?: string;
+  email?: string;
+  cep?: string;
+  rua?: string;
+  bairro?: string;
+  numero?: string;
+  complemento?: string;
+  geral?: string;
+};
+
+type ClienteFormField = Exclude<keyof ClienteFormErrors, 'geral'>;
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const getInputClassName = (hasError?: boolean) =>
+  `${inputClassName} ${hasError ? 'border-red-500/60 focus:border-red-500' : ''}`;
+
+const normalizeBackendField = (field?: string): ClienteFormField | undefined => {
+  if (!field) return undefined;
+
+  const normalized = field.toLowerCase();
+
+  if (normalized.includes('nome')) return 'nome';
+  if (normalized.includes('cpf')) return 'cpf';
+  if (normalized.includes('email')) return 'email';
+  if (normalized.includes('endereco.rua') || normalized === 'rua' || normalized.includes('logradouro')) return 'rua';
+  if (normalized.includes('endereco.bairro') || normalized === 'bairro') return 'bairro';
+  if (normalized.includes('endereco.cep') || normalized === 'cep' || normalized.includes('cep')) return 'cep';
+  if (normalized.includes('endereco.numero') || normalized === 'numero' || normalized.includes('numero')) return 'numero';
+  if (
+    normalized.includes('endereco.complemento') ||
+    normalized === 'complemento' ||
+    normalized.includes('complemento')
+  ) {
+    return 'complemento';
+  }
+
+  return undefined;
+};
+
+const mapApiErrorsToForm = (apiError: ClienteApiErrorInfo): ClienteFormErrors => {
+  const mapped: ClienteFormErrors = {};
+
+  for (const fieldError of apiError.fieldErrors) {
+    const mappedField = normalizeBackendField(fieldError.field);
+    if (mappedField && !mapped[mappedField]) {
+      mapped[mappedField] = fieldError.message;
+    }
+  }
+
+  if (apiError.message && !Object.keys(mapped).length) {
+    mapped.geral = apiError.message;
+  }
+
+  return mapped;
+};
+
+const validarClienteForm = (
+  formData: typeof emptyForm,
+  addressData: typeof emptyAddress,
+): ClienteFormErrors => {
+  const errors: ClienteFormErrors = {};
+
+  if (!formData.nome.trim()) {
+    errors.nome = 'Nome é obrigatório.';
+  }
+
+  const cpf = stripCpf(formData.cpf);
+  if (!cpf) {
+    errors.cpf = 'CPF é obrigatório.';
+  } else if (!/^\d{11}$/.test(cpf)) {
+    errors.cpf = 'CPF deve conter 11 dígitos numéricos.';
+  }
+
+  if (!formData.email.trim()) {
+    errors.email = 'E-mail é obrigatório.';
+  } else if (!EMAIL_REGEX.test(formData.email.trim())) {
+    errors.email = 'Informe um e-mail válido.';
+  }
+
+  const cep = stripCep(formData.cep);
+  if (!cep) {
+    errors.cep = 'CEP é obrigatório.';
+  } else if (!/^\d{8}$/.test(cep)) {
+    errors.cep = 'CEP deve conter 8 dígitos.';
+  } else if (!addressData.cidade || !addressData.uf) {
+    errors.cep = 'CEP não encontrado ou inválido.';
+  }
+
+  if (!addressData.rua.trim()) {
+    errors.rua = 'Rua é obrigatória.';
+  }
+
+  if (!addressData.bairro.trim()) {
+    errors.bairro = 'Bairro é obrigatório.';
+  }
+
+  if (!formData.numero.trim()) {
+    errors.numero = 'Número é obrigatório.';
+  }
+
+  return errors;
+};
 
 // Component 
 
@@ -61,13 +188,13 @@ export default function ClientesList() {
   // Create form state
   const [form, setForm] = useState(emptyForm);
   const [address, setAddress] = useState(emptyAddress);
-  const [formError, setFormError] = useState('');
+  const [formErrors, setFormErrors] = useState<ClienteFormErrors>({});
   const [createCepLoading, setCreateCepLoading] = useState(false);
 
   // Edit form state
   const [editForm, setEditForm] = useState(emptyForm);
   const [editAddress, setEditAddress] = useState(emptyAddress);
-  const [editError, setEditError] = useState('');
+  const [editErrors, setEditErrors] = useState<ClienteFormErrors>({});
   const [editCepLoading, setEditCepLoading] = useState(false);
 
   // Delete confirmation
@@ -84,6 +211,7 @@ export default function ClientesList() {
       setClientes(data);
     } catch (error) {
       console.error('Erro ao carregar clientes', error);
+      toast.error('Erro inesperado ao carregar clientes.');
     } finally {
       setLoading(false);
     }
@@ -136,25 +264,88 @@ export default function ClientesList() {
     accountFilter !== 'todos',
   ].filter(Boolean).length;
 
+  const updateFormField = (field: ClienteFormField, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setFormErrors((prev) => ({ ...prev, [field]: undefined }));
+
+    if (field === 'cep') {
+      setAddress(emptyAddress);
+    }
+  };
+
+  const updateEditField = (field: ClienteFormField, value: string) => {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+    setEditErrors((prev) => ({ ...prev, [field]: undefined }));
+
+    if (field === 'cep') {
+      setEditAddress(emptyAddress);
+    }
+  };
+
+  const applyCreateApiError = (error: unknown, fallbackMessage: string) => {
+    const apiError = extrairErroCliente(error);
+
+    if (apiError.isUnexpected) {
+      toast.error(fallbackMessage);
+      return;
+    }
+
+    const mapped = mapApiErrorsToForm(apiError);
+    setFormErrors(
+      Object.keys(mapped).length
+        ? mapped
+        : { geral: apiError.message ?? 'Não foi possível concluir a operação.' },
+    );
+  };
+
+  const applyEditApiError = (error: unknown, fallbackMessage: string) => {
+    const apiError = extrairErroCliente(error);
+
+    if (apiError.isUnexpected) {
+      toast.error(fallbackMessage);
+      return;
+    }
+
+    const mapped = mapApiErrorsToForm(apiError);
+    setEditErrors(
+      Object.keys(mapped).length
+        ? mapped
+        : { geral: apiError.message ?? 'Não foi possível concluir a operação.' },
+    );
+  };
+
   //  CEP lookup 
 
   const buscarCepCreate = async () => {
     const cep = stripCep(form.cep);
-    if (cep.length !== 8) return;
+
+    if (cep.length !== 8) {
+      setAddress(emptyAddress);
+      setFormErrors((prev) => ({ ...prev, cep: 'CEP deve conter 8 dígitos.' }));
+      return;
+    }
+
     try {
       setCreateCepLoading(true);
-      setFormError('');
+      setFormErrors((prev) => ({ ...prev, cep: undefined }));
       const data = await enderecoService.buscarCep(cep);
-      setAddress({
-        rua: data.logradouro ?? '',
+      const resolvedAddress = {
+        rua: data.rua ?? data.logradouro ?? '',
         bairro: data.bairro ?? '',
-        cidade: data.localidade ?? '',
+        cidade: data.cidade ?? data.localidade ?? '',
         uf: data.uf ?? '',
-      });
-    } catch (err: any) {
-      const msg = err?.response?.data?.mensagem ?? err?.response?.data?.message ?? 'CEP não encontrado ou inválido.';
-      setFormError(msg);
+      };
+
+      if (!resolvedAddress.cidade || !resolvedAddress.uf) {
+        setAddress(emptyAddress);
+        setFormErrors((prev) => ({ ...prev, cep: 'CEP não encontrado ou inválido.' }));
+        return;
+      }
+
+      setAddress(resolvedAddress);
+    } catch {
       setAddress(emptyAddress);
+      setFormErrors((prev) => ({ ...prev, cep: 'CEP não encontrado ou inválido.' }));
     } finally {
       setCreateCepLoading(false);
     }
@@ -162,21 +353,34 @@ export default function ClientesList() {
 
   const buscarCepEdit = async () => {
     const cep = stripCep(editForm.cep);
-    if (cep.length !== 8) return;
+
+    if (cep.length !== 8) {
+      setEditAddress(emptyAddress);
+      setEditErrors((prev) => ({ ...prev, cep: 'CEP deve conter 8 dígitos.' }));
+      return;
+    }
+
     try {
       setEditCepLoading(true);
-      setEditError('');
+      setEditErrors((prev) => ({ ...prev, cep: undefined }));
       const data = await enderecoService.buscarCep(cep);
-      setEditAddress({
-        rua: data.logradouro ?? '',
+      const resolvedAddress = {
+        rua: data.rua ?? data.logradouro ?? '',
         bairro: data.bairro ?? '',
-        cidade: data.localidade ?? '',
+        cidade: data.cidade ?? data.localidade ?? '',
         uf: data.uf ?? '',
-      });
-    } catch (err: any) {
-      const msg = err?.response?.data?.mensagem ?? err?.response?.data?.message ?? 'CEP não encontrado ou inválido.';
-      setEditError(msg);
+      };
+
+      if (!resolvedAddress.cidade || !resolvedAddress.uf) {
+        setEditAddress(emptyAddress);
+        setEditErrors((prev) => ({ ...prev, cep: 'CEP não encontrado ou inválido.' }));
+        return;
+      }
+
+      setEditAddress(resolvedAddress);
+    } catch {
       setEditAddress(emptyAddress);
+      setEditErrors((prev) => ({ ...prev, cep: 'CEP não encontrado ou inválido.' }));
     } finally {
       setEditCepLoading(false);
     }
@@ -188,90 +392,122 @@ export default function ClientesList() {
     if (expandedId === id) {
       setExpandedId(null);
       setDeletingId(null);
+      setEditErrors({});
       return;
     }
+
     setExpandedId(id);
     setDeletingId(null);
-    setEditError('');
+    setEditErrors({});
     setEditForm({
       nome: cliente.nome,
-      cpf: cliente.cpf,
+      cpf: formatCpf(cliente.cpf ?? ''),
       email: cliente.email,
-      cep: cliente.endereco?.cep ?? '',
+      cep: formatCep(cliente.endereco?.cep ?? ''),
       numero: cliente.endereco?.numero ?? '',
       complemento: cliente.endereco?.complemento ?? '',
     });
     setEditAddress({
-      rua: cliente.endereco?.rua ?? '',
+      rua: cliente.endereco?.rua ?? cliente.endereco?.logradouro ?? '',
       bairro: cliente.endereco?.bairro ?? '',
-      cidade: cliente.endereco?.cidade ?? '',
+      cidade: cliente.endereco?.cidade ?? cliente.endereco?.localidade ?? '',
       uf: cliente.endereco?.uf ?? '',
     });
   };
 
   const salvarCliente = async () => {
-    setFormError('');
-    if (!form.nome.trim()) { setFormError('Nome é obrigatório.'); return; }
-    const cpf = stripCpf(form.cpf);
-    if (cpf.length !== 11) { setFormError('CPF deve conter 11 dígitos numéricos.'); return; }
-    if (!form.email.trim()) { setFormError('E-mail é obrigatório.'); return; }
-    const cep = stripCep(form.cep);
-    if (cep.length !== 8) { setFormError('CEP deve conter 8 dígitos.'); return; }
-    if (!form.numero.trim()) { setFormError('Número é obrigatório.'); return; }
+    const localErrors = validarClienteForm(form, address);
+
+    if (Object.keys(localErrors).length) {
+      setFormErrors(localErrors);
+      return;
+    }
 
     const payload: ClienteRequest = {
-      nome: form.nome,
-      cpf,
-      email: form.email,
-      endereco: { cep, numero: form.numero, complemento: form.complemento || undefined },
+      nome: form.nome.trim(),
+      cpf: stripCpf(form.cpf),
+      email: form.email.trim(),
+      endereco: {
+        cep: stripCep(form.cep),
+        rua: address.rua.trim(),
+        bairro: address.bairro.trim(),
+        cidade: address.cidade.trim(),
+        uf: address.uf.trim(),
+        numero: form.numero.trim(),
+        complemento: form.complemento.trim() || undefined,
+      },
     };
+
     try {
+      setFormErrors({});
       await clienteService.cadastrar(payload);
+      toast.success('Cliente cadastrado com sucesso.');
       await carregarClientes();
       setShowCreateForm(false);
       setForm(emptyForm);
       setAddress(emptyAddress);
-    } catch (err: any) {
-      const msg = err?.response?.data?.mensagem ?? err?.response?.data?.message ?? 'Erro ao cadastrar cliente.';
-      setFormError(msg);
+      setFormErrors({});
+    } catch (error) {
+      applyCreateApiError(error, 'Erro inesperado ao cadastrar cliente.');
     }
   };
 
   const atualizarCliente = async (id: number) => {
-    setEditError('');
-    if (!editForm.nome.trim()) { setEditError('Nome é obrigatório.'); return; }
-    const cpf = stripCpf(editForm.cpf);
-    if (cpf.length !== 11) { setEditError('CPF deve conter 11 dígitos numéricos.'); return; }
-    if (!editForm.email.trim()) { setEditError('E-mail é obrigatório.'); return; }
-    const cep = stripCep(editForm.cep);
-    if (cep.length !== 8) { setEditError('CEP deve conter 8 dígitos.'); return; }
-    if (!editForm.numero.trim()) { setEditError('Número é obrigatório.'); return; }
+    const localErrors = validarClienteForm(editForm, editAddress);
+
+    if (Object.keys(localErrors).length) {
+      setEditErrors(localErrors);
+      return;
+    }
 
     const payload: ClienteRequest = {
-      nome: editForm.nome,
-      cpf,
-      email: editForm.email,
-      endereco: { cep, numero: editForm.numero, complemento: editForm.complemento || undefined },
+      nome: editForm.nome.trim(),
+      cpf: stripCpf(editForm.cpf),
+      email: editForm.email.trim(),
+      endereco: {
+        cep: stripCep(editForm.cep),
+        rua: editAddress.rua.trim(),
+        bairro: editAddress.bairro.trim(),
+        cidade: editAddress.cidade.trim(),
+        uf: editAddress.uf.trim(),
+        numero: editForm.numero.trim(),
+        complemento: editForm.complemento.trim() || undefined,
+      },
     };
+
     try {
+      setEditErrors({});
       await clienteService.atualizar(id, payload);
+      toast.success('Cliente atualizado com sucesso.');
       await carregarClientes();
       setExpandedId(null);
-    } catch (err: any) {
-      const msg = err?.response?.data?.mensagem ?? err?.response?.data?.message ?? 'Erro ao atualizar cliente.';
-      setEditError(msg);
+      setDeletingId(null);
+      setEditErrors({});
+    } catch (error) {
+      applyEditApiError(error, 'Erro inesperado ao atualizar cliente.');
     }
   };
 
   const deletarCliente = async (id: number) => {
     try {
       await clienteService.deletar(id);
+      toast.success('Cliente excluído com sucesso.');
       await carregarClientes();
       setExpandedId(null);
       setDeletingId(null);
-    } catch (err: any) {
-      const msg = err?.response?.data?.mensagem ?? err?.response?.data?.message ?? 'Erro ao excluir cliente.';
-      setEditError(msg);
+      setEditErrors({});
+    } catch (error) {
+      const apiError = extrairErroCliente(error);
+      if (apiError.isUnexpected) {
+        toast.error('Erro inesperado ao excluir cliente.');
+      } else {
+        const mapped = mapApiErrorsToForm(apiError);
+        setEditErrors(
+          Object.keys(mapped).length
+            ? mapped
+            : { geral: apiError.message ?? 'Não foi possível excluir o cliente.' },
+        );
+      }
       setDeletingId(null);
     }
   };
@@ -280,9 +516,9 @@ export default function ClientesList() {
 
   const renderCreateForm = () => (
     <div className="p-6 sm:p-8">
-      {formError && (
+      {formErrors.geral && (
         <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium">
-          {formError}
+          {formErrors.geral}
         </div>
       )}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
@@ -301,15 +537,42 @@ export default function ClientesList() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Nome Completo</label>
-                <input type="text" placeholder="Ex: João Silva" className={inputClassName} value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} />
+                <input
+                  type="text"
+                  placeholder="Ex: João Silva"
+                  className={getInputClassName(Boolean(formErrors.nome))}
+                  value={form.nome}
+                  onChange={(e) => updateFormField('nome', e.target.value)}
+                />
+                {formErrors.nome && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{formErrors.nome}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">CPF</label>
-                <input type="text" placeholder="000.000.000-00" className={inputClassName} value={form.cpf} onChange={e => setForm({ ...form, cpf: e.target.value })} />
+                <input
+                  type="text"
+                  placeholder="000.000.000-00"
+                  className={getInputClassName(Boolean(formErrors.cpf))}
+                  value={form.cpf}
+                  onChange={(e) => updateFormField('cpf', formatCpf(e.target.value))}
+                />
+                {formErrors.cpf && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{formErrors.cpf}</p>
+                )}
               </div>
               <div className="md:col-span-2 space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">E-mail</label>
-                <input type="email" placeholder="cliente@email.com" className={inputClassName} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                <input
+                  type="email"
+                  placeholder="cliente@email.com"
+                  className={getInputClassName(Boolean(formErrors.email))}
+                  value={form.email}
+                  onChange={(e) => updateFormField('email', e.target.value)}
+                />
+                {formErrors.email && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{formErrors.email}</p>
+                )}
               </div>
             </div>
           </section>
@@ -332,13 +595,16 @@ export default function ClientesList() {
                   <input
                     type="text"
                     placeholder="00000-000"
-                    className={inputClassName}
+                    className={getInputClassName(Boolean(formErrors.cep))}
                     value={form.cep}
-                    onChange={e => setForm({ ...form, cep: e.target.value })}
+                    onChange={(e) => updateFormField('cep', formatCep(e.target.value))}
                     onBlur={buscarCepCreate}
                   />
                   {createCepLoading && <Loader2 className="absolute right-3 top-3 w-4 h-4 text-[#a100ff] animate-spin" />}
                 </div>
+                {formErrors.cep && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{formErrors.cep}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Cidade</label>
@@ -350,15 +616,61 @@ export default function ClientesList() {
               </div>
               <div className="md:col-span-2 space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Rua / Avenida</label>
-                <input type="text" placeholder="Preenchido via CEP" className={inputReadonlyClassName} value={address.rua} readOnly />
+                <input
+                  type="text"
+                  placeholder="Rua / Avenida"
+                  className={getInputClassName(Boolean(formErrors.rua))}
+                  value={address.rua}
+                  onChange={(e) => {
+                    setAddress((prev) => ({ ...prev, rua: e.target.value }));
+                    setFormErrors((prev) => ({ ...prev, rua: undefined }));
+                  }}
+                />
+                {formErrors.rua && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{formErrors.rua}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Bairro</label>
+                <input
+                  type="text"
+                  placeholder="Bairro"
+                  className={getInputClassName(Boolean(formErrors.bairro))}
+                  value={address.bairro}
+                  onChange={(e) => {
+                    setAddress((prev) => ({ ...prev, bairro: e.target.value }));
+                    setFormErrors((prev) => ({ ...prev, bairro: undefined }));
+                  }}
+                />
+                {formErrors.bairro && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{formErrors.bairro}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Número</label>
-                <input type="text" placeholder="123" className={inputClassName} value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })} />
+                <input
+                  type="text"
+                  placeholder="123"
+                  className={getInputClassName(Boolean(formErrors.numero))}
+                  value={form.numero}
+                  onChange={(e) => updateFormField('numero', e.target.value)}
+                />
+                {formErrors.numero && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{formErrors.numero}</p>
+                )}
               </div>
               <div className="md:col-span-3 space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Complemento</label>
-                <input type="text" placeholder="Bloco A, Sala 4..." className={inputClassName} value={form.complemento} onChange={e => setForm({ ...form, complemento: e.target.value })} />
+                <input
+                  type="text"
+                  placeholder="Bloco A, Sala 4..."
+                  className={getInputClassName(Boolean(formErrors.complemento))}
+                  value={form.complemento}
+                  onChange={(e) => updateFormField('complemento', e.target.value)}
+                />
+                {formErrors.complemento && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{formErrors.complemento}</p>
+                )}
               </div>
             </div>
           </section>
@@ -386,7 +698,12 @@ export default function ClientesList() {
         <div className="text-xs text-slate-600 italic">Preencha todos os campos obrigatórios para registrar o cliente.</div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <Button
-            onClick={() => { setShowCreateForm(false); setForm(emptyForm); setAddress(emptyAddress); setFormError(''); }}
+            onClick={() => {
+              setShowCreateForm(false);
+              setForm(emptyForm);
+              setAddress(emptyAddress);
+              setFormErrors({});
+            }}
             className="flex-1 sm:flex-initial h-11 px-8 rounded-xl bg-[#111111] hover:bg-[#161616] text-slate-300 hover:text-white border border-[#2a2a2a] hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors text-xs"
           >
             CANCELAR
@@ -404,9 +721,9 @@ export default function ClientesList() {
 
   const renderEditForm = (cliente: Cliente) => (
     <div className="p-8 bg-[#0b0b0b] border-t border-[#1a1a1a]">
-      {editError && (
+      {editErrors.geral && (
         <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium">
-          {editError}
+          {editErrors.geral}
         </div>
       )}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
@@ -425,15 +742,42 @@ export default function ClientesList() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Nome Completo</label>
-                <input type="text" placeholder="Ex: João Silva" className={inputClassName} value={editForm.nome} onChange={e => setEditForm({ ...editForm, nome: e.target.value })} />
+                <input
+                  type="text"
+                  placeholder="Ex: João Silva"
+                  className={getInputClassName(Boolean(editErrors.nome))}
+                  value={editForm.nome}
+                  onChange={(e) => updateEditField('nome', e.target.value)}
+                />
+                {editErrors.nome && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{editErrors.nome}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">CPF</label>
-                <input type="text" placeholder="000.000.000-00" className={inputClassName} value={editForm.cpf} onChange={e => setEditForm({ ...editForm, cpf: e.target.value })} />
+                <input
+                  type="text"
+                  placeholder="000.000.000-00"
+                  className={getInputClassName(Boolean(editErrors.cpf))}
+                  value={editForm.cpf}
+                  onChange={(e) => updateEditField('cpf', formatCpf(e.target.value))}
+                />
+                {editErrors.cpf && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{editErrors.cpf}</p>
+                )}
               </div>
               <div className="md:col-span-2 space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">E-mail</label>
-                <input type="email" placeholder="cliente@email.com" className={inputClassName} value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} />
+                <input
+                  type="email"
+                  placeholder="cliente@email.com"
+                  className={getInputClassName(Boolean(editErrors.email))}
+                  value={editForm.email}
+                  onChange={(e) => updateEditField('email', e.target.value)}
+                />
+                {editErrors.email && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{editErrors.email}</p>
+                )}
               </div>
             </div>
           </section>
@@ -456,13 +800,16 @@ export default function ClientesList() {
                   <input
                     type="text"
                     placeholder="00000-000"
-                    className={inputClassName}
+                    className={getInputClassName(Boolean(editErrors.cep))}
                     value={editForm.cep}
-                    onChange={e => setEditForm({ ...editForm, cep: e.target.value })}
+                    onChange={(e) => updateEditField('cep', formatCep(e.target.value))}
                     onBlur={buscarCepEdit}
                   />
                   {editCepLoading && <Loader2 className="absolute right-3 top-3 w-4 h-4 text-[#a100ff] animate-spin" />}
                 </div>
+                {editErrors.cep && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{editErrors.cep}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Cidade</label>
@@ -474,15 +821,61 @@ export default function ClientesList() {
               </div>
               <div className="md:col-span-2 space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Rua / Avenida</label>
-                <input type="text" className={inputReadonlyClassName} value={editAddress.rua} readOnly />
+                <input
+                  type="text"
+                  placeholder="Rua / Avenida"
+                  className={getInputClassName(Boolean(editErrors.rua))}
+                  value={editAddress.rua}
+                  onChange={(e) => {
+                    setEditAddress((prev) => ({ ...prev, rua: e.target.value }));
+                    setEditErrors((prev) => ({ ...prev, rua: undefined }));
+                  }}
+                />
+                {editErrors.rua && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{editErrors.rua}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Bairro</label>
+                <input
+                  type="text"
+                  placeholder="Bairro"
+                  className={getInputClassName(Boolean(editErrors.bairro))}
+                  value={editAddress.bairro}
+                  onChange={(e) => {
+                    setEditAddress((prev) => ({ ...prev, bairro: e.target.value }));
+                    setEditErrors((prev) => ({ ...prev, bairro: undefined }));
+                  }}
+                />
+                {editErrors.bairro && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{editErrors.bairro}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Número</label>
-                <input type="text" placeholder="123" className={inputClassName} value={editForm.numero} onChange={e => setEditForm({ ...editForm, numero: e.target.value })} />
+                <input
+                  type="text"
+                  placeholder="123"
+                  className={getInputClassName(Boolean(editErrors.numero))}
+                  value={editForm.numero}
+                  onChange={(e) => updateEditField('numero', e.target.value)}
+                />
+                {editErrors.numero && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{editErrors.numero}</p>
+                )}
               </div>
               <div className="md:col-span-3 space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-600 uppercase ml-1">Complemento</label>
-                <input type="text" placeholder="Bloco A, Sala 4..." className={inputClassName} value={editForm.complemento} onChange={e => setEditForm({ ...editForm, complemento: e.target.value })} />
+                <input
+                  type="text"
+                  placeholder="Bloco A, Sala 4..."
+                  className={getInputClassName(Boolean(editErrors.complemento))}
+                  value={editForm.complemento}
+                  onChange={(e) => updateEditField('complemento', e.target.value)}
+                />
+                {editErrors.complemento && (
+                  <p className="text-[11px] text-red-400 font-medium ml-1">{editErrors.complemento}</p>
+                )}
               </div>
             </div>
           </section>
@@ -549,7 +942,11 @@ export default function ClientesList() {
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <Button
-            onClick={() => { setExpandedId(null); setDeletingId(null); }}
+            onClick={() => {
+              setExpandedId(null);
+              setDeletingId(null);
+              setEditErrors({});
+            }}
             className="flex-1 sm:flex-initial h-11 px-8 rounded-xl bg-[#111111] hover:bg-[#161616] text-slate-300 hover:text-white border border-[#2a2a2a] hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors text-xs"
           >
             CANCELAR
@@ -574,14 +971,28 @@ export default function ClientesList() {
         action={
           showCreateForm ? (
             <Button
-              onClick={() => setShowCreateForm(false)}
+              onClick={() => {
+                setShowCreateForm(false);
+                setForm(emptyForm);
+                setAddress(emptyAddress);
+                setFormErrors({});
+              }}
               className="w-full md:w-auto h-11 px-6 rounded-xl bg-[#111111] border border-[#2a2a2a] text-slate-400 font-black hover:text-white transition-all gap-2"
             >
               <X className="w-4 h-4" />
               FECHAR FORMULÁRIO
             </Button>
           ) : (
-            <PrimaryActionButton onClick={() => setShowCreateForm(true)}>
+            <PrimaryActionButton
+              onClick={() => {
+                setShowCreateForm(true);
+                setExpandedId(null);
+                setDeletingId(null);
+                setForm(emptyForm);
+                setAddress(emptyAddress);
+                setFormErrors({});
+              }}
+            >
               <UserPlus className="w-4 h-4" />
               CADASTRAR CLIENTE
             </PrimaryActionButton>
@@ -666,7 +1077,12 @@ export default function ClientesList() {
               </div>
             </div>
             <button
-              onClick={() => setShowCreateForm(false)}
+              onClick={() => {
+                setShowCreateForm(false);
+                setForm(emptyForm);
+                setAddress(emptyAddress);
+                setFormErrors({});
+              }}
               className="w-9 h-9 rounded-full bg-[#111111] hover:bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-slate-500 hover:text-white transition-all shadow-inner"
             >
               <X className="w-4 h-4" />

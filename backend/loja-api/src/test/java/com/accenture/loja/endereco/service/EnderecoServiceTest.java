@@ -5,6 +5,7 @@ import com.accenture.loja.endereco.dto.EnderecoResponseDTO;
 import com.accenture.loja.endereco.mapper.EnderecoMapper;
 import com.accenture.loja.endereco.model.Endereco;
 import com.accenture.loja.endereco.repository.EnderecoRepository;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -60,6 +61,10 @@ class EnderecoServiceTest {
 
         enderecoRequestDTO = EnderecoRequestDTO.builder()
                 .cep("58400000")
+                .rua("Rua A")
+                .bairro("Centro")
+                .cidade("Campina Grande")
+                .uf("PB")
                 .numero("100")
                 .complemento("Apto 101")
                 .build();
@@ -154,6 +159,17 @@ class EnderecoServiceTest {
         assertEquals(1L, resultado.getId());
         assertEquals("58400000", resultado.getCep());
 
+        ArgumentCaptor<Endereco> captor = ArgumentCaptor.forClass(Endereco.class);
+        verify(enderecoRepository).save(captor.capture());
+
+        Endereco salvo = captor.getValue();
+        assertAll(
+                () -> assertEquals("Rua A", salvo.getRua()),
+                () -> assertEquals("Centro", salvo.getBairro()),
+                () -> assertEquals("Campina Grande", salvo.getCidade()),
+                () -> assertEquals("PB", salvo.getUf())
+        );
+
         verify(enderecoRepository).save(any(Endereco.class));
         verify(enderecoMapper).toResponseDTO(endereco);
     }
@@ -174,6 +190,17 @@ class EnderecoServiceTest {
                 enderecoService.atualizar(1L, enderecoRequestDTO);
 
         assertNotNull(resultado);
+
+        ArgumentCaptor<Endereco> captor = ArgumentCaptor.forClass(Endereco.class);
+        verify(enderecoRepository).save(captor.capture());
+
+        Endereco atualizado = captor.getValue();
+        assertAll(
+                () -> assertEquals("Rua A", atualizado.getRua()),
+                () -> assertEquals("Centro", atualizado.getBairro()),
+                () -> assertEquals("Campina Grande", atualizado.getCidade()),
+                () -> assertEquals("PB", atualizado.getUf())
+        );
 
         verify(enderecoRepository).findById(1L);
         verify(enderecoRepository).save(any(Endereco.class));

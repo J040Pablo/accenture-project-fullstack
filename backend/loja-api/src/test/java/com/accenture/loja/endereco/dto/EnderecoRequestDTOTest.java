@@ -30,6 +30,10 @@ class EnderecoRequestDTOTest {
         EnderecoRequestDTO dto =
                 EnderecoRequestDTO.builder()
                         .cep("58400000")
+                        .rua("Rua A")
+                        .bairro("Centro")
+                        .cidade("Campina Grande")
+                        .uf("PB")
                         .numero("123")
                         .complemento("Casa")
                         .build();
