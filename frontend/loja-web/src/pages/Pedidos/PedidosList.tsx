@@ -104,6 +104,8 @@ export default function PedidosList() {
 
   const [expandedStatus, setExpandedStatus]   = useState<PedidoStatus>('CRIADO');
   const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
+
+  const [selectedPedidoCompleto, setSelectedPedidoCompleto] = useState<Pedido | null>(null); 
   const [expandedRowId, setExpandedRowId]       = useState<number | null>(null);
   const [searchTerm, setSearchTerm]             = useState('');
   const [productSearch, setProductSearch]       = useState('');
@@ -300,13 +302,14 @@ export default function PedidosList() {
 
 const openPedidoDetail = async (id: number) => {
     setSelectedPedidoId(id);
+    setSelectedPedidoCompleto(null); // ← ADICIONAR
     setErroGlobal(null);
     setScreen('detail');
 
     try {
       const pedidoCompleto = await pedidoService.buscarPorId(id); 
-      
       atualizarPedidoNaLista(pedidoCompleto);
+      setSelectedPedidoCompleto(pedidoCompleto); // ← ADICIONAR
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erro ao carregar os itens do pedido.';
       setErroGlobal(msg);
@@ -1007,7 +1010,7 @@ const openPedidoDetail = async (id: number) => {
   };
 
   const renderDetailView = () => {
-    if (!selectedPedido) {
+  if (!selectedPedido) {
       return (
         <PageLayout>
           <div className="flex flex-col items-center gap-4 py-24">
@@ -1020,9 +1023,11 @@ const openPedidoDetail = async (id: number) => {
       );
     }
 
-    const isAberto   = selectedPedido.status === 'CRIADO';
-    const isReservado = selectedPedido.status === 'RESERVADO';
-    const isPago     = selectedPedido.status === 'PAGO';
+    const pedidoExibido = selectedPedidoCompleto ?? selectedPedido;
+    
+    const isAberto   = pedidoExibido.status === 'CRIADO';   // era selectedPedido
+    const isReservado = pedidoExibido.status === 'RESERVADO';
+    const isPago     = pedidoExibido.status === 'PAGO';
 
     return (
       <PageLayout className="animate-in fade-in duration-700">
