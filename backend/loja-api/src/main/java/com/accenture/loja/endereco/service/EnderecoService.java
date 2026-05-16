@@ -33,8 +33,15 @@ public class EnderecoService {
 
 	public EnderecoResponseDTO salvar(EnderecoRequestDTO dto) {
 
-		Endereco endereco = Endereco.builder().cep(dto.getCep()).numero(dto.getNumero())
-				.complemento(dto.getComplemento()).build();
+		Endereco endereco = Endereco.builder()
+				.cep(dto.getCep())
+				.rua(dto.getRua())
+				.bairro(dto.getBairro())
+				.cidade(dto.getCidade())
+				.uf(dto.getUf())
+				.numero(dto.getNumero())
+				.complemento(dto.getComplemento())
+				.build();
 
 		Endereco enderecoSalvo = enderecoRepository.save(endereco);
 
@@ -47,6 +54,10 @@ public class EnderecoService {
 				.orElseThrow(() -> new BusinessException("Endereço não encontrado"));
 
 		endereco.setCep(dto.getCep());
+		endereco.setRua(dto.getRua());
+		endereco.setBairro(dto.getBairro());
+		endereco.setCidade(dto.getCidade());
+		endereco.setUf(dto.getUf());
 		endereco.setNumero(dto.getNumero());
 		endereco.setComplemento(dto.getComplemento());
 

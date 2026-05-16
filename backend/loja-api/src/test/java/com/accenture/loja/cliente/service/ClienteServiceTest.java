@@ -83,6 +83,10 @@ class ClienteServiceTest {
 
         EnderecoRequestDTO enderecoRequest = EnderecoRequestDTO.builder()
                 .cep("01310100")
+                .rua("Rua do Cliente")
+                .bairro("Bairro do Cliente")
+                .cidade("São Paulo")
+                .uf("SP")
                 .numero("1000")
                 .complemento("Apto 1")
                 .build();
@@ -149,6 +153,10 @@ class ClienteServiceTest {
 
         assertAll(
                 () -> assertEquals("João Silva", clienteSalvo.getNome()),
+                () -> assertEquals("Avenida Paulista", clienteSalvo.getEndereco().getRua()),
+                () -> assertEquals("Bela Vista", clienteSalvo.getEndereco().getBairro()),
+                () -> assertEquals("São Paulo", clienteSalvo.getEndereco().getCidade()),
+                () -> assertEquals("SP", clienteSalvo.getEndereco().getUf()),
                 () -> assertEquals(
                         TipoTitularConta.CLIENTE,
                         clienteSalvo.getContaCorrente().getTipoTitular()
@@ -359,19 +367,19 @@ class ClienteServiceTest {
 
         Cliente atualizado = captor.getValue();
 
-                assertEquals(request.getNome(), atualizado.getNome());
-                assertEquals(request.getCpf(), atualizado.getCpf());
-                assertEquals(request.getEmail(), atualizado.getEmail());
+        assertEquals(request.getNome(), atualizado.getNome());
+        assertEquals(request.getCpf(), atualizado.getCpf());
+        assertEquals(request.getEmail(), atualizado.getEmail());
 
-                // endereço vindo do ViaCep + número/complemento do request
-                assertNotNull(atualizado.getEndereco());
-                assertEquals("01310-100", atualizado.getEndereco().getCep());
-                assertEquals("Avenida Paulista", atualizado.getEndereco().getRua());
-                assertEquals("Bela Vista", atualizado.getEndereco().getBairro());
-                assertEquals("São Paulo", atualizado.getEndereco().getCidade());
-                assertEquals("SP", atualizado.getEndereco().getUf());
-                assertEquals(request.getEndereco().getNumero(), atualizado.getEndereco().getNumero());
-                assertEquals(request.getEndereco().getComplemento(), atualizado.getEndereco().getComplemento());
+        // endereço vindo do ViaCep + número/complemento do request
+        assertNotNull(atualizado.getEndereco());
+        assertEquals("01310-100", atualizado.getEndereco().getCep());
+        assertEquals("Avenida Paulista", atualizado.getEndereco().getRua());
+        assertEquals("Bela Vista", atualizado.getEndereco().getBairro());
+        assertEquals("São Paulo", atualizado.getEndereco().getCidade());
+        assertEquals("SP", atualizado.getEndereco().getUf());
+        assertEquals(request.getEndereco().getNumero(), atualizado.getEndereco().getNumero());
+        assertEquals(request.getEndereco().getComplemento(), atualizado.getEndereco().getComplemento());
     }
 
         @Test
@@ -476,7 +484,12 @@ class ClienteServiceTest {
                 when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
                 when(clienteRepository.existsByCpfAndIdNot(request.getCpf(), 1L)).thenReturn(false);
                 when(clienteRepository.existsByEmailAndIdNot(request.getEmail(), 1L)).thenReturn(false);
-                when(viaCepService.buscarCep("01310100")).thenReturn(viaCepResponse);
+                ViaCepResponseDTO semRuaEBairro = ViaCepResponseDTO.builder()
+                        .cep("01310-100")
+                        .localidade("São Paulo")
+                        .uf("SP")
+                        .build();
+                when(viaCepService.buscarCep("01310100")).thenReturn(semRuaEBairro);
                 when(clienteRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
                 when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
 
@@ -490,6 +503,10 @@ class ClienteServiceTest {
                 Cliente atualizado = captor.getValue();
                 assertNotNull(atualizado.getEndereco());
                 assertEquals("01310-100", atualizado.getEndereco().getCep());
+                assertEquals("Rua do Cliente", atualizado.getEndereco().getRua());
+                assertEquals("Bairro do Cliente", atualizado.getEndereco().getBairro());
+                assertEquals("São Paulo", atualizado.getEndereco().getCidade());
+                assertEquals("SP", atualizado.getEndereco().getUf());
         }
 
         @Test
