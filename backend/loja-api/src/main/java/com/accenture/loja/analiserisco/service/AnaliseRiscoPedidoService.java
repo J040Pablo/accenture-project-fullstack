@@ -31,12 +31,12 @@ public class AnaliseRiscoPedidoService {
     private final PedidoRepository pedidoRepository;
     private final AnaliseRiscoPedidoMapper analiseRiscoPedidoMapper;
 
-    private static final BigDecimal LIMITE_ALTO_RISCO  = new BigDecimal("10000.00");
+    private static final BigDecimal LIMITE_ALTO_RISCO = new BigDecimal("10000.00");
     private static final BigDecimal LIMITE_MEDIO_RISCO = new BigDecimal("3000.00");
     private static final BigDecimal LIMITE_CONSUMO_SALDO_MEDIO = new BigDecimal("0.70");
-    private static final int        LIMITE_ITENS       = 50;
-    private static final LocalTime  INICIO_MADRUGADA   = LocalTime.of(0, 0);
-    private static final LocalTime  FIM_MADRUGADA      = LocalTime.of(6, 0);
+    private static final int LIMITE_ITENS = 50;
+    private static final LocalTime INICIO_MADRUGADA = LocalTime.of(0, 0);
+    private static final LocalTime FIM_MADRUGADA = LocalTime.of(6, 0);
 
     public AnaliseRiscoPedidoResponseDTO analisarRisco(Long pedidoId) {
         Pedido pedido = pedidoRepository.findById(pedidoId)
@@ -50,15 +50,20 @@ public class AnaliseRiscoPedidoService {
         List<String> motivos = new ArrayList<>();
         boolean riscoCritico = false;
         boolean riscoModerado = false;
+
         LocalTime agora = horaAtual();
         boolean ehMadrugada = agora.isAfter(INICIO_MADRUGADA) && agora.isBefore(FIM_MADRUGADA);
 
         var cliente = pedido.getCliente();
         ContaCorrente contaCliente = cliente != null ? cliente.getContaCorrente() : null;
+
         List<?> itens = pedido.getItens() != null ? pedido.getItens() : List.of();
         int totalItens = pedido.getItens() == null
                 ? 0
-                : pedido.getItens().stream().mapToInt(item -> item.getQuantidade() != null ? item.getQuantidade() : 0).sum();
+                : pedido.getItens()
+                .stream()
+                .mapToInt(item -> item.getQuantidade() != null ? item.getQuantidade() : 0)
+                .sum();
 
         if (cliente == null) {
             riscoCritico = true;
@@ -96,26 +101,34 @@ public class AnaliseRiscoPedidoService {
             motivos.add("Compra realizada em horário de madrugada (00h–06h)");
         }
 
-        if (pedido.getStatus() == null) {
+        StatusPedido statusPedido = pedido.getStatus();
+
+        if (statusPedido == null) {
             riscoCritico = true;
             motivos.add("Status do pedido não informado");
-        } else if (pedido.getStatus() == StatusPedido.CANCELADO) {
+        } else if (statusPedido == StatusPedido.CANCELADO) {
             riscoCritico = true;
             motivos.add("Pedido cancelado");
-        } else if (pedido.getStatus() == StatusPedido.PAGO) {
+        } else if (statusPedido == StatusPedido.PAGO) {
             motivos.add("Pedido já liquidado");
-        } else if (pedido.getStatus() == StatusPedido.RESERVADO) {
+        } else if (statusPedido == StatusPedido.RESERVADO) {
             motivos.add("Pedido já reservado");
         } else {
             motivos.add("Pedido ainda em aberto");
         }
 
-        if (contaCliente != null && valorTotal.compareTo(BigDecimal.ZERO) > 0) {
-            if (contaCliente.getSaldo().compareTo(valorTotal) < 0) {
+        boolean deveValidarSaldoAtual = statusPedido != StatusPedido.PAGO
+                && statusPedido != StatusPedido.CANCELADO;
+
+        if (deveValidarSaldoAtual && contaCliente != null && valorTotal.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal saldoCliente = contaCliente.getSaldo() != null ? contaCliente.getSaldo() : BigDecimal.ZERO;
+
+            if (saldoCliente.compareTo(valorTotal) < 0) {
                 riscoCritico = true;
                 motivos.add("Saldo insuficiente para o valor do pedido");
-            } else {
-                BigDecimal consumoSaldo = valorTotal.divide(contaCliente.getSaldo(), 4, RoundingMode.HALF_UP);
+            } else if (saldoCliente.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal consumoSaldo = valorTotal.divide(saldoCliente, 4, RoundingMode.HALF_UP);
+
                 if (consumoSaldo.compareTo(LIMITE_CONSUMO_SALDO_MEDIO) >= 0) {
                     riscoModerado = true;
                     motivos.add("Pedido consome grande parte do saldo disponível");
@@ -128,6 +141,7 @@ public class AnaliseRiscoPedidoService {
         }
 
         NivelRisco nivel = riscoCritico ? NivelRisco.ALTO : (riscoModerado ? NivelRisco.MEDIO : NivelRisco.BAIXO);
+
         int score = switch (nivel) {
             case ALTO -> 90;
             case MEDIO -> 55;
@@ -146,7 +160,7 @@ public class AnaliseRiscoPedidoService {
                 .clienteNome(cliente != null ? cliente.getNome() : null)
                 .valorTotal(valorTotal)
                 .saldoCliente(contaCliente != null ? contaCliente.getSaldo() : null)
-                .statusPedido(pedido.getStatus())
+                .statusPedido(statusPedido)
                 .nivelRisco(nivel)
                 .score(score)
                 .motivos(motivos)
