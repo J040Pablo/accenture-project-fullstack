@@ -6,10 +6,7 @@ import {
   Banknote,
   Building2,
   CreditCard,
-  HandCoins,
   Landmark,
-  Minus,
-  Plus,
   ReceiptText,
   User,
   Wallet,
@@ -60,6 +57,9 @@ export default function Contas() {
   const [isLoadingContas, setIsLoadingContas] = useState(false);
   const [isLoadingMovimentacoes, setIsLoadingMovimentacoes] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [entradas24h, setEntradas24h] = useState<number | null>(null);
+  const [saidas24h, setSaidas24h] = useState<number | null>(null);
+  const [isLoadingResumo24h, setIsLoadingResumo24h] = useState(false);
 
   useEffect(() => {
     async function carregarContas() {
@@ -105,12 +105,73 @@ export default function Contas() {
     carregarMovimentacoes();
   }, [selectedAccountId]);
 
+
+
   const empresaConta = useMemo(() => contas.find((conta) => conta.tipoTitular === 'EMPRESA'), [contas]);
   const contasCliente = useMemo(() => contas.filter((conta) => conta.tipoTitular === 'CLIENTE'), [contas]);
   const selectedAccount = useMemo(
     () => contas.find((conta) => conta.id === selectedAccountId) ?? null,
     [contas, selectedAccountId],
   );
+
+  useEffect(() => {
+    // Compute 24h summary for company account
+    let mounted = true;
+    async function carregarResumo24h() {
+      setIsLoadingResumo24h(true);
+      setEntradas24h(null);
+      setSaidas24h(null);
+      if (!empresaConta?.id) {
+        setEntradas24h(0);
+        setSaidas24h(0);
+        setIsLoadingResumo24h(false);
+        return;
+      }
+
+      try {
+        const res = await movimentacaoService.listarPorConta(empresaConta.id);
+        const movs: Movimentacao[] = (res.data ?? []) as Movimentacao[];
+        const agora = Date.now();
+        const umDiaMs = 24 * 60 * 60 * 1000;
+
+        // Types defined in project — classify correctly for the company's account
+        const entradasTipos: Movimentacao['tipo'][] = ['DEPOSITO', 'RECEBIMENTO_EMPRESA'];
+        const saidasTipos: Movimentacao['tipo'][] = ['SAQUE', 'ESTORNO_EMPRESA'];
+
+        let entradas = 0;
+        let saidas = 0;
+
+        for (const m of movs) {
+          const dt = new Date(m.dataHora);
+          if (Number.isNaN(dt.getTime())) continue;
+          const diff = agora - dt.getTime();
+          if (diff < 0 || diff > umDiaMs) continue;
+
+          const valor = Number(m.valor ?? 0) || 0;
+          if (entradasTipos.includes(m.tipo)) {
+            entradas += valor;
+          } else if (saidasTipos.includes(m.tipo)) {
+            // aggregate absolute value for outflows
+            saidas += Math.abs(valor);
+          }
+        }
+
+        if (!mounted) return;
+        setEntradas24h(entradas);
+        setSaidas24h(saidas);
+      } catch (err) {
+        if (!mounted) return;
+        setEntradas24h(0);
+        setSaidas24h(0);
+      } finally {
+        if (!mounted) return;
+        setIsLoadingResumo24h(false);
+      }
+    }
+
+    carregarResumo24h();
+    return () => { mounted = false; };
+  }, [empresaConta?.id]);
 
   const renderAccountChip = (tipo: Conta['tipoTitular']) => (
     <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[10px] font-bold tracking-widest ${accountTypeStyles[tipo]}`}>
@@ -186,14 +247,6 @@ export default function Contas() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button className="flex-1 sm:flex-initial h-12 px-6 rounded-xl bg-[#111111] hover:bg-[#161616] text-slate-300 hover:text-white border border-[#2a2a2a] hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors font-bold">
-                <Plus className="w-4 h-4 mr-2" />
-                Depositar
-              </Button>
-              <Button className="flex-1 sm:flex-initial h-12 px-6 rounded-xl bg-[#111111] hover:bg-[#161616] text-[#d6a2b0] hover:text-[#f0c2cf] border border-[#5a1f35]/40 hover:border-[#5a1f35]/70 outline-none focus:outline-none focus:ring-0 transition-colors font-bold">
-                <Minus className="w-4 h-4 mr-2" />
-                Sacar
-              </Button>
               <div className="flex-1 sm:flex-initial sm:ml-auto">
                 <Button onClick={() => selectedAccountId && openDetail(selectedAccountId)} className="w-full sm:w-auto h-12 px-8 rounded-xl bg-[#a100ff] hover:bg-[#b933ff] text-white border border-[#a100ff] outline-none focus:outline-none focus:ring-0 transition-colors font-black">
                   Ver detalhes
@@ -214,7 +267,7 @@ export default function Contas() {
               </div>
             </div>
 
-            <div className="space-y-4 text-sm flex-1">
+              <div className="space-y-4 text-sm flex-1">
               <div className="flex items-center justify-between py-2 border-b border-[#1a1a1a]">
                 <span className="text-slate-500 font-medium">Conta principal</span>
                 <span className="text-white font-bold tracking-tight">Ativa em operação</span>
@@ -224,12 +277,12 @@ export default function Contas() {
                 <span className="text-[#d8b4fe] font-black">{contasCliente.length} Clientes</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-[#1a1a1a]">
-                <span className="text-slate-500 font-medium tracking-tight">Entradas (24h)</span>
-                <span className="text-[#c4b5fd] font-black">--</span>
+                <span className="text-slate-500 font-medium tracking-tight">Entradas da empresa (24h)</span>
+                <span className="text-[#c4b5fd] font-black">{isLoadingResumo24h ? 'Carregando...' : formatMoney(entradas24h ?? 0)}</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-[#1a1a1a]">
-                <span className="text-slate-500 font-medium tracking-tight">Saídas (24h)</span>
-                <span className="text-[#d6a2b0] font-black">--</span>
+                <span className="text-slate-500 font-medium tracking-tight">Saídas da empresa (24h)</span>
+                <span className="text-[#d6a2b0] font-black">{isLoadingResumo24h ? 'Carregando...' : formatMoney(saidas24h ?? 0)}</span>
               </div>
             </div>
 
@@ -405,38 +458,13 @@ export default function Contas() {
             </div>
 
             <aside className="space-y-6">
-              <div className="rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] p-6 shadow-xl">
-                <h3 className="text-xs font-black text-white tracking-widest uppercase mb-6 flex items-center gap-2">
-                  Controles de caixa
-                  <HandCoins className="w-4 h-4 text-[#a100ff]/60" />
-                </h3>
-                <div className="flex flex-col gap-3">
-                  <Button className="w-full h-12 px-6 rounded-xl bg-[#111111] hover:bg-[#161616] text-[#d8b4fe] hover:text-white border border-[#a100ff]/20 hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors justify-start">
-                    <Plus className="w-4 h-4 mr-3" />
-                    Depositar fundos
-                  </Button>
-                  <Button className="w-full h-12 px-6 rounded-xl bg-[#111111] hover:bg-[#161616] text-[#d6a2b0] hover:text-[#f0c2cf] border border-[#5a1f35]/40 hover:border-[#5a1f35]/70 outline-none focus:outline-none focus:ring-0 transition-colors justify-start">
-                    <Minus className="w-4 h-4 mr-3" />
-                    Solicitar saque
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => navigate('/pedidos')}
-                    className="w-full h-12 px-6 rounded-xl bg-[#111111] hover:bg-[#161616] text-slate-300 hover:text-white border border-[#2a2a2a] hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors justify-start"
-                  >
-                    <ReceiptText className="w-4 h-4 mr-3" />
-                    Ver pedido relacionado
-                  </Button>
-                </div>
-              </div>
-
               <div className="rounded-2xl border border-[#a100ff]/10 bg-[#a100ff]/[0.02] p-6">
                 <div className="flex items-center gap-3 mb-4 text-[#d8b4fe]">
                   <Landmark className="w-5 h-5 flex-shrink-0" />
-                  <h4 className="text-xs font-black uppercase tracking-widest">Impacto financeiro</h4>
+                  <h4 className="text-xs font-black uppercase tracking-widest">Fluxo de movimentações</h4>
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed italic">
-                  TODO: integrar métricas analíticas adicionais quando o backend disponibilizar endpoints dedicados.
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  As movimentações são geradas automaticamente pelos fluxos de pagamento e estorno de pedidos. A conta da empresa é creditada conforme os clientes realizam pagamentos.
                 </p>
               </div>
 

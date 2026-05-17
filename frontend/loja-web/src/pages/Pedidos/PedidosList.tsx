@@ -55,6 +55,42 @@ function formatData(iso: string | null | undefined): string {
   return d.toLocaleDateString('pt-BR');
 }
 
+function melhorarRecomendacao(
+  recomendacaoOriginal: string,
+  motivos: string[] | undefined,
+  valorTotal: number | undefined,
+  nivelRisco: string | undefined
+): string {
+  if (!motivos || motivos.length === 0) {
+    return recomendacaoOriginal;
+  }
+
+  const motivosLower = motivos.map(m => m.toLowerCase()).join(' ');
+
+  // Se há saldo insuficiente
+  if (motivosLower.includes('saldo') || motivosLower.includes('crédito')) {
+    return 'Alto risco identificado. Verifique o saldo do cliente antes de reservar ou pagar o pedido.';
+  }
+
+  // Se o pedido é de alto valor
+  if (valorTotal && valorTotal > 10000) {
+    return 'Pedido de alto valor. Recomenda-se validação manual e análise adicional antes de prosseguir com a operação.';
+  }
+
+  // Se o pedido ainda está criado
+  if (motivosLower.includes('criado') || motivosLower.includes('novo')) {
+    return 'Pedido ainda não reservado. A próxima etapa operacional é reservar o estoque para garantir a disponibilidade.';
+  }
+
+  // Se o pedido é de alto risco
+  if (nivelRisco === 'ALTO') {
+    return 'Nível de risco elevado identificado. Recomenda-se análise manual antes de prosseguir com a operação.';
+  }
+
+  // Fallback: retorna a recomendação original
+  return recomendacaoOriginal;
+}
+
 const statusStyles: Record<PedidoStatus, string> = {
   CRIADO:    'bg-[#a100ff]/10 text-[#d8b4fe] border-[#a100ff]/20',
   RESERVADO: 'bg-[#7c3aed]/10 text-[#c4b5fd] border-[#7c3aed]/20',
@@ -150,6 +186,59 @@ export default function PedidosList() {
     [produtos, selectedProductId]
   );
 
+  const itensAdicionadosResumo = useMemo(() => {
+    const subtotal = itensCarrinho.reduce((total, item) => {
+      const produto = produtos.find((p) => p.id === item.produtoId);
+      return total + (produto?.preco ?? 0) * item.quantidade;
+    }, 0);
+
+    const quantidadeTotal = itensCarrinho.reduce((total, item) => total + item.quantidade, 0);
+
+    return {
+      subtotal,
+      quantidadeTotal,
+      total: subtotal,
+    };
+  }, [itensCarrinho, produtos]);
+
+  const getProdutoPorId = useCallback((produtoId: number) => {
+    return produtos.find((produto) => produto.id === produtoId) ?? null;
+  }, [produtos]);
+
+  const validarItensCarrinho = useCallback((itens: ItemCarrinho[]) => {
+    const itemInvalido = itens.find((item) => {
+      const produto = getProdutoPorId(item.produtoId);
+
+      if (!produto) {
+        return true;
+      }
+
+      return item.quantidade <= 0 || item.quantidade > (produto.estoque ?? 0);
+    });
+
+    if (!itemInvalido) {
+      return null;
+    }
+
+    const produto = getProdutoPorId(itemInvalido.produtoId);
+
+    if (!produto) {
+      return 'Produto não encontrado para validação de estoque.';
+    }
+
+    if (itemInvalido.quantidade <= 0) {
+      return `Quantidade inválida para o produto: ${produto.nome}.`;
+    }
+
+    return `Estoque insuficiente para o produto: ${produto.nome}. Disponível: ${produto.estoque}, Solicitado: ${itemInvalido.quantidade}`;
+  }, [getProdutoPorId]);
+
+  const limparErroSeCarrinhoValido = useCallback((itens: ItemCarrinho[]) => {
+    if (!validarItensCarrinho(itens)) {
+      setErroGlobal(null);
+    }
+  }, [validarItensCarrinho]);
+
   const activeStatusIndex = statusOptions.findIndex(s => s === expandedStatus);
 
   const filteredPedidos = pedidos.filter(pedido => {
@@ -237,13 +326,108 @@ export default function PedidosList() {
 
   const adicionarItemCarrinho = () => {
     const produtoId = selectedProductId;
+
+    if (!produtoId) {
+      setErroGlobal('Selecione um produto antes de adicionar.');
+      return;
+    }
+
+    const produto = getProdutoPorId(produtoId);
+
+    if (!produto) {
+      setErroGlobal('Produto não encontrado.');
+      return;
+    }
+
+    if ((produto.estoque ?? 0) <= 0) {
+      setErroGlobal(`Estoque insuficiente para o produto: ${produto.nome}. Disponível: ${produto.estoque}, Solicitado: 1`);
+      return;
+    }
+
     setItensCarrinho(prev => {
       const existente = prev.find(i => i.produtoId === produtoId);
+
       if (existente) {
-        return prev.map(i => i.produtoId === produtoId ? { ...i, quantidade: i.quantidade + 1 } : i);
+        if (existente.quantidade >= (produto.estoque ?? 0)) {
+          setErroGlobal(`Estoque insuficiente para o produto: ${produto.nome}. Disponível: ${produto.estoque}, Solicitado: ${existente.quantidade + 1}`);
+          return prev;
+        }
+
+        const updated = prev.map(i => i.produtoId === produtoId ? { ...i, quantidade: i.quantidade + 1 } : i);
+        limparErroSeCarrinhoValido(updated);
+        return updated;
       }
-      return [...prev, { produtoId, quantidade: 1 }];
+
+      const updated = [...prev, { produtoId, quantidade: 1 }];
+      limparErroSeCarrinhoValido(updated);
+      return updated;
     });
+  };
+
+  const aumentarQuantidadeItem = (produtoId: number) => {
+    const produto = getProdutoPorId(produtoId);
+
+    if (!produto) {
+      setErroGlobal('Produto não encontrado.');
+      return;
+    }
+
+    setItensCarrinho((prev) => {
+      const updated = prev.map((item) => {
+        if (item.produtoId !== produtoId) {
+          return item;
+        }
+
+        const proximaQuantidade = item.quantidade + 1;
+
+        if (proximaQuantidade > (produto.estoque ?? 0)) {
+          setErroGlobal(`Estoque insuficiente para o produto: ${produto.nome}. Disponível: ${produto.estoque}, Solicitado: ${proximaQuantidade}`);
+          return item;
+        }
+
+        return { ...item, quantidade: proximaQuantidade };
+      });
+
+      limparErroSeCarrinhoValido(updated);
+      return updated;
+    });
+  };
+
+  const diminuirQuantidadeItem = (produtoId: number) => {
+    setItensCarrinho((prev) => {
+      const itemAtual = prev.find((item) => item.produtoId === produtoId);
+
+      if (!itemAtual) {
+        return prev;
+      }
+
+      if (itemAtual.quantidade <= 1) {
+        const updated = prev.filter((item) => item.produtoId !== produtoId);
+        limparErroSeCarrinhoValido(updated);
+        return updated;
+      }
+
+      const updated = prev.map((item) => (
+        item.produtoId === produtoId
+          ? { ...item, quantidade: item.quantidade - 1 }
+          : item
+      ));
+
+      limparErroSeCarrinhoValido(updated);
+      return updated;
+    });
+  };
+
+  const removerItemCarrinho = (produtoId: number) => {
+    setItensCarrinho((prev) => {
+      const updated = prev.filter((item) => item.produtoId !== produtoId);
+      limparErroSeCarrinhoValido(updated);
+      return updated;
+    });
+  };
+
+  const getItensParaCalculo = () => {
+    return itensCarrinho;
   };
 
   const handleSalvarPedido = async () => {
@@ -254,13 +438,19 @@ export default function PedidosList() {
       return;
     }
 
+    const itensFinal = getItensParaCalculo();
+    const mensagemErro = validarItensCarrinho(itensFinal);
+
+    if (mensagemErro) {
+      setErroGlobal(mensagemErro);
+      toast.error(mensagemErro);
+      return;
+    }
+
     setSalvando(true);
     setErroGlobal(null);
     try {
       const clienteId = selectedClientId;
-      const itensFinal = itensCarrinho.length > 0
-        ? itensCarrinho
-        : [{ produtoId: selectedProductId, quantidade: 1 }];
 
       const novoPedido = await pedidoService.criar({ clienteId, desconto: 0, itens: itensFinal });
       setPedidos(prev => [novoPedido, ...prev]);
@@ -878,21 +1068,91 @@ const openPedidoDetail = async (id: number) => {
                   <div className="rounded-2xl border border-[#2a2a2a] bg-[#111111] p-6">
                     <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-6">ITENS ADICIONADOS</div>
                     {itensCarrinho.length === 0 ? (
-                      <p className="text-xs text-slate-600 italic">Nenhum item adicionado ainda.</p>
+                      <div className="space-y-2">
+                        <p className="text-xs text-slate-600 italic">Nenhum item adicionado ainda.</p>
+                        <p className="text-xs text-slate-600">Selecione um produto e clique em <span className="text-[#d8b4fe] font-bold">+ ITENS</span>.</p>
+                      </div>
                     ) : (
                       <div className="space-y-3">
                         {itensCarrinho.map(item => {
-                          const prod = produtos.find(p => p.id === item.produtoId);
+                          const prod = getProdutoPorId(item.produtoId);
+                          const estoqueDisponivel = prod?.estoque ?? 0;
+                          const quantidadeMaximaAtingida = item.quantidade >= estoqueDisponivel;
                           return (
-                            <div key={item.produtoId} className="flex justify-between text-xs text-slate-400">
-                              <span>{prod?.nome ?? `Produto #${item.produtoId}`}</span>
-                              <span className="text-white font-bold">× {item.quantidade}</span>
+                            <div key={item.produtoId} className="rounded-xl border border-[#1a1a1a] bg-[#0b0b0b] p-4 flex flex-col gap-3">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <div className="text-sm font-bold text-white truncate">{prod?.nome ?? `Produto #${item.produtoId}`}</div>
+                                  <div className="text-[10px] text-slate-600 mt-0.5">
+                                    {prod?.sku ?? 'SKU indisponível'} · Estoque: {estoqueDisponivel}
+                                  </div>
+                                </div>
+                                <div className="text-right text-[10px] text-slate-500 uppercase tracking-widest">
+                                  {prod ? formatBRL(prod.preco) : '-'}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="inline-flex items-center gap-2 rounded-xl border border-[#2a2a2a] bg-[#111111] px-3 py-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => diminuirQuantidadeItem(item.produtoId)}
+                                    className="w-8 h-8 rounded-lg bg-[#0b0b0b] border border-[#2a2a2a] text-white font-black hover:border-[#a100ff]/40 hover:text-[#d8b4fe] transition-colors"
+                                    aria-label={`Diminuir quantidade de ${prod?.nome ?? 'produto'}`}
+                                  >
+                                    -
+                                  </button>
+                                  <span className="min-w-10 text-center text-sm font-black text-white">{item.quantidade}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => aumentarQuantidadeItem(item.produtoId)}
+                                    disabled={quantidadeMaximaAtingida}
+                                    className="w-8 h-8 rounded-lg bg-[#0b0b0b] border border-[#2a2a2a] text-white font-black hover:border-[#a100ff]/40 hover:text-[#d8b4fe] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label={`Aumentar quantidade de ${prod?.nome ?? 'produto'}`}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => removerItemCarrinho(item.produtoId)}
+                                  className="h-8 px-3 rounded-lg border border-[#5a1f35]/40 bg-[#111111] text-[#d6a2b0] text-[11px] font-bold uppercase tracking-widest hover:bg-[#2a1118] hover:border-[#5a1f35]/70 transition-colors"
+                                >
+                                  Remover
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
                       </div>
                     )}
                   </div>
+                  {itensCarrinho.length > 0 && (
+                    <div className="rounded-2xl border border-[#a100ff]/20 bg-[#0b0b0b] p-6 shadow-xl">
+                      <div className="flex items-center justify-between gap-3 mb-5">
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1">Resumo do Pedido</div>
+                          <div className="text-sm font-black text-white">Total do pedido</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] text-slate-600 uppercase tracking-widest">Itens</div>
+                          <div className="text-sm font-black text-[#d8b4fe]">{itensAdicionadosResumo.quantidadeTotal}</div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Subtotal</span>
+                          <span className="text-slate-200 font-semibold">{formatBRL(itensAdicionadosResumo.subtotal)}</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-3 border-t border-[#1a1a1a]">
+                          <span className="text-slate-400 font-black uppercase tracking-widest">Total</span>
+                          <span className="text-white font-black text-base">{formatBRL(itensAdicionadosResumo.total)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="p-4 rounded-2xl bg-[#0b0b0b] border border-[#2a2a2a] space-y-3">
                     <div className="flex items-center gap-3 text-[11px] text-slate-400">
                       <CheckCircle2 className="w-4 h-4 text-[#a1ffdb]" />
@@ -940,7 +1200,7 @@ const openPedidoDetail = async (id: number) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#141414]">
-                      {(itensCarrinho.length > 0 ? itensCarrinho : [{ produtoId: selectedProductId, quantidade: 1 }]).map(item => {
+                      {itensCarrinho.map(item => {
                         const prod = produtos.find(p => p.id === item.produtoId);
                         return (
                           <tr key={item.produtoId} className="text-sm hover:bg-[#ffffff]/[0.02] transition-colors">
@@ -948,7 +1208,13 @@ const openPedidoDetail = async (id: number) => {
                             <td className="p-5 text-center text-slate-400">{String(item.quantidade).padStart(2, '0')}</td>
                           </tr>
                         );
-                      })}
+                      })
+                      }
+                      {itensCarrinho.length === 0 && (
+                        <tr>
+                          <td colSpan={2} className="p-10 text-center text-xs text-slate-600">Nenhum item adicionado ao pedido.</td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -969,13 +1235,30 @@ const openPedidoDetail = async (id: number) => {
                   <Button
                     onClick={adicionarItemCarrinho}
                     className="flex-1 sm:flex-initial h-12 px-8 rounded-xl bg-[#111111] hover:bg-[#161616] text-[#d8b4fe] hover:text-white border border-[#a100ff]/20 hover:border-[#a100ff]/40 outline-none focus:outline-none focus:ring-0 transition-colors uppercase tracking-widest text-xs font-bold"
+                    title="Adicionar o produto selecionado ao pedido"
                   >
-                    <Plus className="w-4 h-4 mr-2" /> Itens
+                    <Plus className="w-4 h-4 mr-2" /> ITENS
                   </Button>
                 )}
                 <Button
-                  disabled={salvando || (!selectedClientId && createStep === 1)}
+                  disabled={salvando || (!selectedClientId && createStep === 1) || (createStep === 2 && itensCarrinho.length === 0)}
                   onClick={() => {
+                    if (createStep === 2 && itensCarrinho.length === 0) {
+                      setErroGlobal('Adicione pelo menos um item ao pedido.');
+                      toast.error('Adicione pelo menos um item ao pedido.');
+                      return;
+                    }
+
+                    if (createStep === 2) {
+                      const mensagemErro = validarItensCarrinho(itensCarrinho);
+
+                      if (mensagemErro) {
+                        setErroGlobal(mensagemErro);
+                        toast.error(mensagemErro);
+                        return;
+                      }
+                    }
+
                     if (createStep < 3) {
                       setCreateStep((createStep + 1) as CreateStep);
                     } else {
@@ -1082,6 +1365,7 @@ const openPedidoDetail = async (id: number) => {
                 try {
                   const res = await analiseRiscoService.analisarPedido(selectedPedido.idPedido);
                   setAnaliseResultado(res);
+                  toast.success('Análise de risco gerada com sucesso.');
                 } catch (e: unknown) {
                   const msg = e instanceof Error ? e.message : 'Erro ao analisar o pedido.';
                   setErroGlobal(msg);
@@ -1136,6 +1420,115 @@ const openPedidoDetail = async (id: number) => {
             </div>
           </div>
         </div>
+
+        {/* Análise de Risco Section */}
+        {analiseResultado && (
+          <div className="rounded-2xl border border-[#a100ff]/20 bg-[#a100ff]/5 p-6 shadow-xl">
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-sm font-black text-white uppercase tracking-tight">Resultado da Análise de Risco</h3>
+                <p className="text-xs text-slate-500 mt-1">{formatData(analiseResultado.dataAnalise)}</p>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] text-slate-600 uppercase tracking-widest">Score</div>
+                <div className="text-3xl font-black text-white">{analiseResultado.score}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <div className="rounded-xl bg-[#0b0b0b] border border-[#1a1a1a] p-4">
+                <div className="text-[10px] text-slate-600 uppercase tracking-widest mb-2">Nível de Risco</div>
+                <div className={`text-sm font-bold ${
+                  analiseResultado.nivelRisco === 'ALTO' ? 'text-[#d6a2b0]' : 
+                  analiseResultado.nivelRisco === 'MEDIO' ? 'text-[#c4b5fd]' : 
+                  'text-[#d8b4fe]'
+                }`}>
+                  {analiseResultado.nivelRisco === 'ALTO' ? 'Alto Risco' : 
+                   analiseResultado.nivelRisco === 'MEDIO' ? 'Médio Risco' : 
+                   'Baixo Risco'}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-[#0b0b0b] border border-[#1a1a1a] p-4">
+                <div className="text-[10px] text-slate-600 uppercase tracking-widest mb-2">Status Atual</div>
+                <div className="text-sm font-bold text-slate-200">{analiseResultado.statusPedido}</div>
+              </div>
+
+              <div className="rounded-xl bg-[#0b0b0b] border border-[#1a1a1a] p-4">
+                <div className="text-[10px] text-slate-600 uppercase tracking-widest mb-2">Valor Total</div>
+                <div className="text-sm font-bold text-[#a1ffdb]">{formatBRL(analiseResultado.valorTotal)}</div>
+              </div>
+            </div>
+
+            {analiseResultado.motivos && analiseResultado.motivos.length > 0 && (
+              <div className="mb-6">
+                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-3">Motivos Identificados</div>
+                <div className="space-y-2">
+                  {analiseResultado.motivos.map((motivo: string, idx: number) => (
+                    <div key={idx} className="flex gap-2">
+                      <span className="text-slate-500 shrink-0">•</span>
+                      <p className="text-sm text-slate-200">{motivo}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-xl border border-[#a100ff]/30 bg-[#0b0b0b] p-4">
+              <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">Recomendação</div>
+              <p className="text-sm leading-relaxed text-slate-100">
+                {melhorarRecomendacao(
+                  analiseResultado.recomendacao,
+                  analiseResultado.motivos,
+                  analiseResultado.valorTotal,
+                  analiseResultado.nivelRisco
+                )}
+              </p>
+            </div>
+
+            {/* Próxima Ação baseada no Status */}
+            <div className="mt-6 pt-6 border-t border-[#1a1a1a] flex items-center gap-4">
+              <div>
+                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1">Próxima Ação Recomendada</div>
+                <p className="text-sm text-slate-200">
+                  {analiseResultado.statusPedido === 'CRIADO' && 'Reservar estoque para garantir a disponibilidade dos itens.'}
+                  {analiseResultado.statusPedido === 'RESERVADO' && 'Realizar o pagamento usando o saldo disponível do cliente.'}
+                  {analiseResultado.statusPedido === 'PAGO' && 'Pedido pago. Acompanhe a entrega nos relatórios.'}
+                  {analiseResultado.statusPedido === 'CANCELADO' && 'Pedido cancelado. Nenhuma ação operacional pendente.'}
+                </p>
+              </div>
+              {(analiseResultado.statusPedido === 'CRIADO' || analiseResultado.statusPedido === 'RESERVADO') && (
+                <Button
+                  onClick={async () => {
+                    setLoadingAcao(selectedPedido.idPedido);
+                    try {
+                      if (analiseResultado.statusPedido === 'CRIADO') {
+                        await pedidoService.reservar(selectedPedido.idPedido);
+                        toast.success('Pedido reservado com sucesso.');
+                      } else if (analiseResultado.statusPedido === 'RESERVADO') {
+                        await pedidoService.pagar(selectedPedido.idPedido);
+                        toast.success('Pagamento realizado com sucesso.');
+                      }
+                      await carregarPedidos();
+                      window.setTimeout(() => setSelectedPedidoId(selectedPedido.idPedido), 500);
+                    } catch (e: unknown) {
+                      const msg = e instanceof Error ? e.message : 'Erro ao executar ação.';
+                      setErroGlobal(msg);
+                    } finally {
+                      setLoadingAcao(null);
+                    }
+                  }}
+                  disabled={loadingAcao === selectedPedido.idPedido}
+                  className="h-10 px-4 rounded-xl bg-[#a100ff] text-white hover:bg-[#a100ff]/90 transition-colors font-semibold text-sm whitespace-nowrap"
+                >
+                  {loadingAcao === selectedPedido.idPedido ? 'Processando...' : 
+                   analiseResultado.statusPedido === 'CRIADO' ? 'Reservar Pedido' : 
+                   'Pagar Pedido'}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Itens + Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8">

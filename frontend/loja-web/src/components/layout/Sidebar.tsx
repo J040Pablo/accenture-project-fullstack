@@ -50,7 +50,7 @@ export const Sidebar: React.FC = () => {
       <div className={cn('flex items-center px-3 mb-8 transition-all duration-300', isExpanded ? 'justify-center gap-2' : 'justify-center')}>
         {isExpanded && (
           <span className="text-white font-semibold text-base tracking-wide whitespace-nowrap">
-            Logo
+            Accenture
           </span>
         )}
         <div className={cn('w-12 h-12 flex items-center justify-center transform transition-transform duration-500 cursor-pointer', isExpanded ? 'rotate-180' : 'rotate-0')}>
@@ -145,7 +145,7 @@ export const Sidebar: React.FC = () => {
               Administrador
             </span>
             <span className="text-[10px] text-slate-500 font-medium">
-              pablo@accenture.com
+              empresa@accenture.com
             </span>
           </div>
         </div>
