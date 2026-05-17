@@ -7,7 +7,6 @@ import {
   ShoppingCart,
   CreditCard,
   ShieldCheck,
-  FileText,
   User
 } from 'lucide-react';
 import { cn } from '../../utils';
@@ -20,7 +19,6 @@ const navItems = [
   { name: 'Pedidos', path: '/pedidos', icon: ShoppingCart },
   { name: 'Contas', path: '/contas', icon: CreditCard },
   { name: 'Análise de Risco', path: '/analise-risco', icon: ShieldCheck },
-  { name: 'Relatórios', path: '/relatorios', icon: FileText },
 ];
 
 export const Sidebar: React.FC = () => {

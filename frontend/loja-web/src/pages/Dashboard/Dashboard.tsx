@@ -34,81 +34,113 @@ import {
 import { Card } from '../../components/ui/Card';
 import { contaService } from '../../services/contaService';
 import { movimentacaoService } from '../../services/movimentacaoService';
+import { pedidoService } from '../../services/pedidoService';
+import { produtoService } from '../../services/produtoService';
+import { clienteService } from '../../services/clienteService';
+import { analiseRiscoService } from '../../services/analiseRiscoService';
+
 import type { Conta } from '../../types/Conta';
 import type { Movimentacao } from '../../types/Movimentacao';
+import type { Pedido } from '../../types/Pedido';
+import type { Produto } from '../../types/Produto';
+import type { Cliente } from '../../types/Cliente';
+import type { AnaliseRiscoPedido } from '../../types/AnaliseRisco';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type OrderStatus = 'Pago' | 'Reservado' | 'Cancelado' | 'Pendente';
-type RiskLevel   = 'Baixo' | 'Médio' | 'Alto';
-
-interface Order {
-  id: string;
-  cliente: string;
-  status: OrderStatus;
-  valor: string;
-  risco: RiskLevel;
-  data: string;
-}
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const latestOrders: Order[] = [
-  { id: '#1021', cliente: 'João Silva',   status: 'Pago',      valor: 'R$ 320,00', risco: 'Baixo', data: 'Hoje'   },
-  { id: '#1020', cliente: 'Maria Souza',  status: 'Reservado', valor: 'R$ 180,00', risco: 'Médio', data: 'Hoje'   },
-  { id: '#1019', cliente: 'Ana Costa',    status: 'Cancelado', valor: 'R$ 90,00',  risco: 'Baixo', data: 'Ontem'  },
-  { id: '#1018', cliente: 'Carlos Lima',  status: 'Pendente',  valor: 'R$ 450,00', risco: 'Alto',  data: 'Ontem'  },
-  { id: '#1017', cliente: 'Lucia Ferraz', status: 'Pago',      valor: 'R$ 215,00', risco: 'Baixo', data: '2 dias' },
-];
-
-const lowStockItems = [
-  { name: 'Camiseta Algodão',  units: 3 },
-  { name: 'Mouse Gamer',       units: 2 },
-  { name: 'Teclado Mecânico',  units: 1 },
-  { name: 'Coca Cola 2L',      units: 4 },
-];
 
 function useDashboardData() {
   const [contas, setContas] = useState<Conta[]>([]);
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([]);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [analises, setAnalises] = useState<AnaliseRiscoPedido[]>([]);
+  
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMap, setErrorMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function carregarDados() {
       setIsLoading(true);
-      setError(null);
+      setErrorMap({});
 
-      try {
-        const [contasResponse, movimentacoesResponse] = await Promise.allSettled([
-          contaService.listar(),
-          movimentacaoService.listar(),
-        ]);
+      const [contasRes, movsRes, pedidosRes, produtosRes, clientesRes] = await Promise.allSettled([
+        contaService.listar().catch(() => null),
+        movimentacaoService.listar().catch(() => null),
+        pedidoService.listar().catch(() => null),
+        produtoService.listar().catch(() => null),
+        clienteService.listar().catch(() => null),
+      ]);
 
-        if (contasResponse.status === 'fulfilled') {
-          setContas(contasResponse.value.data);
-        }
+      const updatedErrors: Record<string, boolean> = {};
+      let fetchedPedidos: Pedido[] = [];
 
-        if (movimentacoesResponse.status === 'fulfilled') {
-          setMovimentacoes(movimentacoesResponse.value.data);
-        }
-
-        if (contasResponse.status === 'rejected' && movimentacoesResponse.status === 'rejected') {
-          setError('Não foi possível carregar os dados do dashboard.');
-        } else if (contasResponse.status === 'rejected') {
-          setError('Não foi possível carregar as contas.');
-        } else if (movimentacoesResponse.status === 'rejected') {
-          setError('Não foi possível carregar as movimentações.');
-        }
-      } finally {
-        setIsLoading(false);
+      // Resolvers
+      if (contasRes.status === 'fulfilled' && contasRes.value) {
+        setContas(contasRes.value.data ?? contasRes.value ?? []);
+      } else {
+        updatedErrors.contas = true;
       }
+
+      if (movsRes.status === 'fulfilled' && movsRes.value) {
+        setMovimentacoes(movsRes.value.data ?? movsRes.value ?? []);
+      } else {
+        updatedErrors.movimentacoes = true;
+      }
+
+      if (pedidosRes.status === 'fulfilled' && pedidosRes.value) {
+        fetchedPedidos = (pedidosRes.value as any).data ?? pedidosRes.value ?? [];
+        setPedidos(fetchedPedidos);
+      } else {
+        updatedErrors.pedidos = true;
+      }
+
+      if (produtosRes.status === 'fulfilled' && produtosRes.value) {
+        setProdutos((produtosRes.value as any).data ?? produtosRes.value ?? []);
+      } else {
+        updatedErrors.produtos = true;
+      }
+
+      if (clientesRes.status === 'fulfilled' && clientesRes.value) {
+        setClientes((clientesRes.value as any).data ?? clientesRes.value ?? []);
+      } else {
+        updatedErrors.clientes = true;
+      }
+
+      // Analises de Risco fallback
+      if (fetchedPedidos.length > 0) {
+        try {
+          const analisesProm = fetchedPedidos.map(async (p) => {
+            try {
+              return await analiseRiscoService.buscarPorPedido(p.idPedido!);
+            } catch (err: any) {
+              if (err?.response?.status === 404 || err?.status === 404 || err?.message?.includes("404")) {
+                return await analiseRiscoService.analisarPedido(p.idPedido!);
+              }
+              try {
+                return await analiseRiscoService.analisarPedido(p.idPedido!);
+              } catch {
+                 return null;
+              }
+            }
+          });
+          const results = await Promise.all(analisesProm);
+          setAnalises(results.filter(Boolean) as AnaliseRiscoPedido[]);
+        } catch {
+          updatedErrors.analises = true;
+        }
+      }
+
+      setErrorMap(updatedErrors);
+      setIsLoading(false);
     }
 
     carregarDados();
   }, []);
 
-  return { contas, movimentacoes, isLoading, error };
+  return { contas, movimentacoes, pedidos, produtos, clientes, analises, isLoading, errorMap };
 }
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
@@ -122,12 +154,6 @@ const statusStyle: Record<OrderStatus, { dot: string; badge: string }> = {
   Cancelado: { dot: 'bg-rose-400/40',  badge: 'bg-[#111111] text-slate-500 border-[#2a2a2a]'            },
 };
 
-
-const riskText: Record<RiskLevel, string> = {
-  Baixo: 'text-slate-400',
-  Médio: 'text-[#c4b5fd]',
-  Alto:  'text-[#a78bfa] font-semibold',
-};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -200,19 +226,89 @@ interface MetricDef {
   hint?: string;
 }
 
-function MetricCards({ contas, isLoading, error }: { contas: Conta[]; isLoading: boolean; error: string | null }) {
-  const empresa = contas.find((conta) => conta.tipoTitular === 'EMPRESA');
-  const saldoEmpresa = !error && empresa ? `R$ ${empresa.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '--';
+function MetricCards({
+  contas,
+  pedidos,
+  produtos,
+  clientes,
+  analises,
+  isLoading,
+  errorMap
+}: {
+  contas: Conta[];
+  pedidos: Pedido[];
+  produtos: Produto[];
+  clientes: Cliente[];
+  analises: AnaliseRiscoPedido[];
+  isLoading: boolean;
+  errorMap: Record<string, boolean>;
+}) {
+  // 1. Saldo da Empresa
+  const empresa = contas.find((conta: any) => conta.tipoTitular === 'EMPRESA' || conta.tipo === 'EMPRESA');
+  const saldoEmpresa = errorMap.contas 
+    ? '--' 
+    : empresa 
+      ? `R$ ${Number(empresa.saldo || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` 
+      : 'R$ 0,00';
+
+  // 2. Pedidos Pagos
+  const pedidosPagosStr = errorMap.pedidos 
+    ? '--' 
+    : pedidos.filter(p => (p.status || '').toString().toUpperCase() === 'PAGO').length.toString();
+
+  // 3. Pedidos Pendentes
+  const pedidosPendentesStr = errorMap.pedidos 
+    ? '--' 
+    : pedidos.filter(p => {
+        const s = (p.status || '').toString().toUpperCase();
+        return s === 'CRIADO' || s === 'RESERVADO' || s === 'PENDENTE' || (s !== 'PAGO' && s !== 'CANCELADO');
+      }).length.toString();
+
+  // 4. Estoque Baixo
+  const estoqueBaixoStr = errorMap.produtos 
+    ? '--' 
+    : produtos.filter(p => Number(p.estoque) <= 5).length.toString();
+
+  // 5. Clientes Cadastrados
+  const clientesStr = errorMap.clientes 
+    ? '--' 
+    : clientes.length.toString();
+
+  // 6. Faturamento do Mês
+  const agora = new Date();
+  const faturamentoMesVal = pedidos.filter(p => {
+    if ((p.status || '').toString().toUpperCase() !== 'PAGO') return false;
+    const dataReg = (p as any).dataCriacao || (p as any).dataPedido || (p as any).dataAtualizacao || (p as any).criadoEm;
+    if (!dataReg) return false;
+    const dt = new Date(dataReg);
+    if (Number.isNaN(dt.getTime())) return false;
+    return dt.getMonth() === agora.getMonth() && dt.getFullYear() === agora.getFullYear();
+  }).reduce((acc, p: any) => acc + Number(p.totalFinal ?? p.valorTotal ?? p.valorFinal ?? p.total ?? 0), 0);
+
+  const faturamentoMesStr = errorMap.pedidos 
+    ? '--' 
+    : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(faturamentoMesVal);
+
+  // 7. Pedidos Cancelados
+  const pedidosCanceladosStr = errorMap.pedidos 
+    ? '--' 
+    : pedidos.filter(p => (p.status || '').toString().toUpperCase() === 'CANCELADO').length.toString();
+
+  // 8. Risco Médio
+  const riscoStr = errorMap.analises 
+    ? '--' 
+    : analises.filter((a: any) => a.nivelRisco === 'MEDIO' || a.nivelRisco === 'ALTO').length.toString();
+
 
   const metrics: MetricDef[] = [
     { title: 'Saldo da Empresa',      value: isLoading ? '...' : saldoEmpresa, description: 'Disponível na conta principal',       icon: Wallet,       hint: undefined     },
-    { title: 'Pedidos Pagos',         value: '--',         description: 'Pedidos finalizados no período',      icon: CheckCircle2, hint: undefined     },
-    { title: 'Pedidos Pendentes',     value: '--',          description: 'Aguardando reserva ou pagamento',     icon: Clock,        hint: 'Requer atenção' },
-    { title: 'Estoque Baixo',         value: '--',          description: 'Produtos com reposição necessária',   icon: Package,      hint: 'Verificar hoje' },
-    { title: 'Clientes Cadastrados',  value: '--',        description: 'Total de clientes na base',           icon: Users,        hint: undefined     },
-    { title: 'Faturamento do Mês',    value: '--',  description: 'Receita total do mês atual',          icon: TrendingUp,   hint: undefined     },
-    { title: 'Pedidos Cancelados',    value: '--',          description: 'Cancelamentos no período',            icon: XCircle,      hint: undefined     },
-    { title: 'Risco Médio',           value: '--',      description: 'Pedidos com risco médio ou alto',     icon: AlertTriangle,hint: undefined     },
+    { title: 'Pedidos Pagos',         value: isLoading ? '...' : pedidosPagosStr,         description: 'Pedidos finalizados no período',      icon: CheckCircle2, hint: undefined     },
+    { title: 'Pedidos Pendentes',     value: isLoading ? '...' : pedidosPendentesStr,          description: 'Aguardando reserva ou pagamento',     icon: Clock,        hint: 'Requer atenção' },
+    { title: 'Estoque Baixo',         value: isLoading ? '...' : estoqueBaixoStr,          description: 'Produtos com reposição necessária',   icon: Package,      hint: 'Verificar hoje' },
+    { title: 'Clientes Cadastrados',  value: isLoading ? '...' : clientesStr,        description: 'Total de clientes na base',           icon: Users,        hint: undefined     },
+    { title: 'Faturamento do Mês',    value: isLoading ? '...' : faturamentoMesStr,  description: 'Receita total do mês atual',          icon: TrendingUp,   hint: undefined     },
+    { title: 'Pedidos Cancelados',    value: isLoading ? '...' : pedidosCanceladosStr,          description: 'Cancelamentos no período',            icon: XCircle,      hint: undefined     },
+    { title: 'Risco Médio',           value: isLoading ? '...' : riscoStr,      description: 'Pedidos com risco médio ou alto',     icon: AlertTriangle,hint: undefined     },
   ];
 
   return (
@@ -253,6 +349,26 @@ function MetricCards({ contas, isLoading, error }: { contas: Conta[]; isLoading:
 
 function LatestOrders({ className }: { className?: string }) {
   const navigate = useNavigate();
+  const [pedidos, setPedidos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await (await import('../../services/pedidoService')).pedidoService.listar();
+        if (mounted) setPedidos(data ?? []);
+      } catch (e: any) {
+        if (mounted) setError(e?.message ?? 'Erro ao carregar pedidos');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <Card className={cn("overflow-hidden flex flex-col", className)}>
@@ -289,29 +405,39 @@ function LatestOrders({ className }: { className?: string }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {latestOrders.map((order) => {
-              const ss = statusStyle[order.status];
-              return (
-                <TableRow key={order.id} className="group/row">
-                  <TableCell className="font-mono font-bold text-slate-400 group-hover/row:text-[#a100ff] transition-colors">{order.id}</TableCell>
-                  <TableCell className="text-sm font-medium text-slate-300">{order.cliente}</TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-tighter ${ss.dot.replace('bg-', 'text-')} ${ss.badge}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ss.dot}`} />
-                      {order.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm font-bold text-white">{order.valor}</TableCell>
-                  <TableCell className={cn("text-[11px] font-bold uppercase", riskText[order.risco])}>{order.risco}</TableCell>
-                  <TableCell className="text-[11px] font-medium text-slate-600">{order.data}</TableCell>
-                  <TableCell className="text-right">
-                    <button className="opacity-0 group-hover/row:opacity-100 transition-opacity p-2 rounded-xl hover:bg-white/[0.05] text-slate-600 hover:text-white">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {loading ? (
+              <tr><td colSpan={7} className="p-6 text-center text-slate-500">Carregando pedidos...</td></tr>
+            ) : error ? (
+              <tr><td colSpan={7} className="p-6 text-center text-[#d6a2b0]">{error}</td></tr>
+            ) : pedidos.length === 0 ? (
+              <tr><td colSpan={7} className="p-20 text-center">Nenhum pedido encontrado.</td></tr>
+            ) : (
+              pedidos.map((pedido) => {
+                const statusLabel = (pedido.status ?? '').toString();
+                const statusDisplay = statusLabel === 'PAGO' ? 'Pago' : statusLabel === 'RESERVADO' ? 'Reservado' : statusLabel === 'CANCELADO' ? 'Cancelado' : 'Criado';
+                const ss = statusStyle[(statusDisplay as unknown) as OrderStatus] || statusStyle.Pago;
+                return (
+                  <TableRow key={pedido.idPedido} className="group/row">
+                    <TableCell className="font-mono font-bold text-slate-400 group-hover/row:text-[#a100ff] transition-colors">#{pedido.idPedido}</TableCell>
+                    <TableCell className="text-sm font-medium text-slate-300">Cliente #{pedido.clienteId}</TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-tighter ${ss.dot.replace('bg-', 'text-')} ${ss.badge}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ss.dot}`} />
+                        {statusDisplay}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm font-bold text-white">R$ {Number(pedido.totalFinal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell className={cn("text-[11px] font-bold uppercase", 'text-slate-400')}>-</TableCell>
+                    <TableCell className="text-[11px] font-medium text-slate-600">{new Date(pedido.dataCriacao).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">
+                      <button className="opacity-0 group-hover/row:opacity-100 transition-opacity p-2 rounded-xl hover:bg-white/[0.05] text-slate-600 hover:text-white">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
       </div>
@@ -377,6 +503,28 @@ function FinancialMovements({ movimentacoes, isLoading, error }: { movimentacoes
 
 function LowStockProducts() {
   const navigate = useNavigate();
+  const [produtos, setProdutos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await (await import('../../services/produtoService')).produtoService.listar();
+        if (mounted) setProdutos(data ?? []);
+      } catch (e: any) {
+        if (mounted) setError(e?.message ?? 'Erro ao carregar produtos');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const lowItems = produtos.filter(p => typeof p.estoque === 'number' && p.estoque <= 5);
 
   return (
     <Card className="overflow-hidden flex flex-col">
@@ -396,23 +544,31 @@ function LowStockProducts() {
 
       {/* List */}
       <div className="divide-y divide-[#141414] flex-1">
-        {lowStockItems.map((p) => (
-          <div key={p.name} className="flex items-center justify-between px-6 py-4 hover:bg-white/[0.02] transition-all group">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center group-hover:border-[#a100ff]/20 group-hover:text-[#a100ff] transition-all">
-                <Package className="w-3.5 h-3.5 text-slate-600" />
+        {loading ? (
+          <div className="px-6 py-4 text-slate-400">Carregando produtos...</div>
+        ) : error ? (
+          <div className="px-6 py-4 text-[#d6a2b0]">{error}</div>
+        ) : lowItems.length === 0 ? (
+          <div className="px-6 py-4 text-slate-500">Nenhum produto com estoque baixo.</div>
+        ) : (
+          lowItems.map((p) => (
+            <div key={p.id} className="flex items-center justify-between px-6 py-4 hover:bg-white/[0.02] transition-all group">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center group-hover:border-[#a100ff]/20 group-hover:text-[#a100ff] transition-all">
+                  <Package className="w-3.5 h-3.5 text-slate-600" />
+                </div>
+                <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{p.nome}</span>
               </div>
-              <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{p.name}</span>
+              <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-tighter ${
+                p.estoque <= 2
+                  ? 'bg-rose-500/[0.08] text-rose-400 border-rose-500/20'
+                  : 'bg-[#111111] text-slate-500 border-[#2a2a2a]'
+              }`}>
+                {p.estoque} UN.
+              </span>
             </div>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-tighter ${
-              p.units <= 2
-                ? 'bg-rose-500/[0.08] text-rose-400 border-rose-500/20'
-                : 'bg-[#111111] text-slate-500 border-[#2a2a2a]'
-            }`}>
-              {p.units} UN.
-            </span>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Footer link */}
@@ -434,7 +590,7 @@ function LowStockProducts() {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const { contas, movimentacoes, isLoading, error } = useDashboardData();
+  const { contas, movimentacoes, pedidos, produtos, clientes, analises, isLoading, errorMap } = useDashboardData();
 
   return (
     <PageLayout>
@@ -453,7 +609,15 @@ export default function Dashboard() {
       <StatusBadges />
 
       {/* 3. Metric cards — 2 cols on mobile, 4 on desktop */}
-      <MetricCards contas={contas} isLoading={isLoading} error={error} />
+      <MetricCards 
+        contas={contas} 
+        pedidos={pedidos} 
+        produtos={produtos} 
+        clientes={clientes} 
+        analises={analises} 
+        isLoading={isLoading} 
+        errorMap={errorMap} 
+      />
 
       <div className="flex items-center justify-between gap-4 mt-2">
         <div>
@@ -486,7 +650,7 @@ export default function Dashboard() {
 
       {/* 6. Financial movements + Low stock */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <FinancialMovements movimentacoes={movimentacoes} isLoading={isLoading} error={error} />
+        <FinancialMovements movimentacoes={movimentacoes} isLoading={isLoading} error={errorMap.movimentacoes ? "Erro ao carregar movimentações" : null} />
         <LowStockProducts />
       </div>
 

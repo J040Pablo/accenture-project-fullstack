@@ -268,8 +268,8 @@ export default function Contas() {
                             <User className="w-5 h-5" />
                           </div>
                           <div>
-                            <div className="text-slate-200 font-bold text-sm tracking-tight group-hover:text-white transition-colors">Conta #{account.id}</div>
-                            <div className="text-[10px] text-slate-600 font-bold uppercase mt-0.5">ID: <span className="text-[#a100ff]/60 tracking-tighter">{account.id}</span></div>
+                            <div className="text-slate-200 font-bold text-sm tracking-tight group-hover:text-white transition-colors">{account.titularNome ?? 'Titular não informado'}</div>
+                            <div className="text-[10px] text-slate-600 font-bold uppercase mt-0.5">Conta: <span className="text-[#a100ff]/60 tracking-tighter">{account.numeroConta}</span></div>
                           </div>
                         </div>
                       </td>
@@ -314,7 +314,7 @@ export default function Contas() {
             </div>
             <div>
               <h2 className="text-white font-bold text-xl tracking-tight">Conta #{selectedAccount?.numeroConta ?? '--'}</h2>
-              <p className="text-xs text-slate-500 font-medium">Titular: <span className="text-slate-300 font-bold">{selectedAccount?.tipoTitular ?? '--'}</span></p>
+              <p className="text-xs text-slate-500 font-medium">Titular: <span className="text-slate-300 font-bold">{selectedAccount?.titularNome ?? '--'}</span></p>
             </div>
           </div>
 
@@ -340,7 +340,7 @@ export default function Contas() {
             </div>
             <div className="p-5 rounded-2xl bg-[#111111] border border-[#2a2a2a]">
               <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-3">Titular</div>
-              <div className="text-white font-bold text-sm truncate">{selectedAccount?.numeroConta ?? '--'}</div>
+              <div className="text-white font-bold text-sm truncate">{selectedAccount?.titularNome ?? '--'}</div>
             </div>
             <div className="p-5 rounded-2xl bg-[#111111] border border-[#a100ff]/20 bg-gradient-to-br from-[#111111] to-[#a100ff]/[0.02]">
               <div className="text-[10px] font-bold text-[#d8b4fe] uppercase tracking-widest mb-3">Liquidez</div>

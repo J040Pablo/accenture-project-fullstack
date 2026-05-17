@@ -15,8 +15,17 @@ public class AnaliseRiscoPedidoMapper {
         return AnaliseRiscoPedidoResponseDTO.builder()
                 .id(analise.getId())
                 .pedidoId(analise.getPedido() != null ? analise.getPedido().getIdPedido() : null)
+            .clienteId(analise.getClienteId())
+            .clienteNome(analise.getClienteNome())
+            .valorTotal(analise.getValorTotal())
+            .saldoCliente(analise.getSaldoCliente())
+            .statusPedido(analise.getStatusPedido())
                 .nivelRisco(analise.getNivelRisco())
+            .score(analise.getScore())
+            .motivos(analise.getMotivos())
                 .motivo(analise.getMotivo())
+            .recomendacao(analise.getRecomendacao())
+            .aprovado(analise.getAprovado())
                 .dataAnalise(analise.getDataAnalise())
                 .build();
     }

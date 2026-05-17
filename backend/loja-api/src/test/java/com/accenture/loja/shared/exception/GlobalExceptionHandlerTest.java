@@ -70,6 +70,15 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void deveTratarServiceUnavailableException() {
+        ServiceUnavailableException exception = new ServiceUnavailableException("Serviço indisponível no momento");
+
+        ResponseEntity<ErroResponse> response = globalExceptionHandler.tratarServiceUnavailable(exception);
+
+        assertResponsePadrao(response, HttpStatus.SERVICE_UNAVAILABLE, "Serviço indisponível", "Serviço indisponível no momento");
+    }
+
+    @Test
     void deveTratarExceptionGenericaSemExporDetalheInterno() {
         Exception exception = new Exception("Erro sensível do sistema");
 

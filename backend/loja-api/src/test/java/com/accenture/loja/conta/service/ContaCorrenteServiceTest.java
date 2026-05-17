@@ -1,5 +1,9 @@
 package com.accenture.loja.conta.service;
 
+import com.accenture.loja.cliente.model.Cliente;
+import com.accenture.loja.cliente.repository.ClienteRepository;
+import com.accenture.loja.empresa.model.Empresa;
+import com.accenture.loja.empresa.repository.EmpresaRepository;
 import com.accenture.loja.conta.dto.ContaCorrenteResponseDTO;
 import com.accenture.loja.conta.mapper.ContaCorrenteMapper;
 import com.accenture.loja.conta.model.ContaCorrente;
@@ -31,6 +35,12 @@ class ContaCorrenteServiceTest {
     @Mock
     private ContaCorrenteMapper contaCorrenteMapper;
 
+        @Mock
+        private ClienteRepository clienteRepository;
+
+        @Mock
+        private EmpresaRepository empresaRepository;
+
     @InjectMocks
     private ContaCorrenteService contaCorrenteService;
 
@@ -59,6 +69,7 @@ class ContaCorrenteServiceTest {
         contaClienteDTO = ContaCorrenteResponseDTO.builder()
                 .id(1L)
                 .numeroConta("12345")
+                .titularNome("João Silva")
                 .saldo(new BigDecimal("1000.00"))
                 .tipoTitular(TipoTitularConta.CLIENTE)
                 .build();
@@ -66,6 +77,7 @@ class ContaCorrenteServiceTest {
         contaEmpresaDTO = ContaCorrenteResponseDTO.builder()
                 .id(2L)
                 .numeroConta("67890")
+                .titularNome("Loja Exemplo LTDA")
                 .saldo(new BigDecimal("5000.00"))
                 .tipoTitular(TipoTitularConta.EMPRESA)
                 .build();
@@ -78,9 +90,13 @@ class ContaCorrenteServiceTest {
 
         when(contaCorrenteMapper.toResponseDTO(contaCliente))
                 .thenReturn(contaClienteDTO);
+        when(clienteRepository.findByContaCorrente_Id(1L))
+                .thenReturn(Optional.of(Cliente.builder().nome("João Silva").build()));
 
         when(contaCorrenteMapper.toResponseDTO(contaEmpresa))
                 .thenReturn(contaEmpresaDTO);
+        when(empresaRepository.findByContaCorrente_Id(2L))
+                .thenReturn(Optional.of(new Empresa("Loja Exemplo LTDA", "Loja Exemplo", "00.000.000/0001-00", "contato@lojaexemplo.com", "11999999999")));
 
         List<ContaCorrenteResponseDTO> resultado =
                 contaCorrenteService.listarContas();
@@ -89,7 +105,9 @@ class ContaCorrenteServiceTest {
         assertEquals(2, resultado.size());
 
         assertEquals("12345", resultado.get(0).getNumeroConta());
+        assertEquals("João Silva", resultado.get(0).getTitularNome());
         assertEquals("67890", resultado.get(1).getNumeroConta());
+        assertEquals("Loja Exemplo LTDA", resultado.get(1).getTitularNome());
 
         verify(contaCorrenteRepository).findAll();
         verify(contaCorrenteMapper, times(2))
@@ -119,6 +137,8 @@ class ContaCorrenteServiceTest {
 
         when(contaCorrenteMapper.toResponseDTO(contaCliente))
                 .thenReturn(contaClienteDTO);
+        when(clienteRepository.findByContaCorrente_Id(1L))
+                .thenReturn(Optional.of(Cliente.builder().nome("João Silva").build()));
 
         ContaCorrenteResponseDTO resultado =
                 contaCorrenteService.buscarPorId(1L);
@@ -126,6 +146,7 @@ class ContaCorrenteServiceTest {
         assertNotNull(resultado);
         assertEquals(1L, resultado.getId());
         assertEquals("12345", resultado.getNumeroConta());
+        assertEquals("João Silva", resultado.getTitularNome());
 
         verify(contaCorrenteRepository).findById(1L);
         verify(contaCorrenteMapper).toResponseDTO(contaCliente);

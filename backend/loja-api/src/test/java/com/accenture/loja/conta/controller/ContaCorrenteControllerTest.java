@@ -44,6 +44,7 @@ class ContaCorrenteControllerTest {
         contaCliente = ContaCorrenteResponseDTO.builder()
                 .id(1L)
                 .numeroConta("12345")
+                .titularNome("João Silva")
                 .saldo(new BigDecimal("1000.00"))
                 .tipoTitular(TipoTitularConta.CLIENTE)
                 .build();
@@ -51,6 +52,7 @@ class ContaCorrenteControllerTest {
         contaEmpresa = ContaCorrenteResponseDTO.builder()
                 .id(2L)
                 .numeroConta("67890")
+                .titularNome("Loja Exemplo LTDA")
                 .saldo(new BigDecimal("5000.00"))
                 .tipoTitular(TipoTitularConta.EMPRESA)
                 .build();
@@ -66,10 +68,12 @@ class ContaCorrenteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].numeroConta").value("12345"))
+                .andExpect(jsonPath("$[0].titularNome").value("João Silva"))
                 .andExpect(jsonPath("$[0].saldo").value(1000.00))
                 .andExpect(jsonPath("$[0].tipoTitular").value("CLIENTE"))
                 .andExpect(jsonPath("$[1].id").value(2))
                 .andExpect(jsonPath("$[1].numeroConta").value("67890"))
+                .andExpect(jsonPath("$[1].titularNome").value("Loja Exemplo LTDA"))
                 .andExpect(jsonPath("$[1].saldo").value(5000.00))
                 .andExpect(jsonPath("$[1].tipoTitular").value("EMPRESA"));
 
@@ -100,6 +104,7 @@ class ContaCorrenteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.numeroConta").value("12345"))
+                .andExpect(jsonPath("$.titularNome").value("João Silva"))
                 .andExpect(jsonPath("$.saldo").value(1000.00))
                 .andExpect(jsonPath("$.tipoTitular").value("CLIENTE"));
 
@@ -116,6 +121,7 @@ class ContaCorrenteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(2))
                 .andExpect(jsonPath("$.numeroConta").value("67890"))
+                .andExpect(jsonPath("$.titularNome").value("Loja Exemplo LTDA"))
                 .andExpect(jsonPath("$.saldo").value(5000.00))
                 .andExpect(jsonPath("$.tipoTitular").value("EMPRESA"));
 

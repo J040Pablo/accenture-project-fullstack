@@ -509,6 +509,132 @@ class ClienteServiceTest {
                 assertEquals("SP", atualizado.getEndereco().getUf());
         }
 
+                @Test
+                void criarCliente_viaCepComCamposEmBranco_usaDadosDoRequest() {
+
+                        ViaCepResponseDTO response = ViaCepResponseDTO.builder()
+                                .cep("01310-100")
+                                .logradouro("   ")
+                                .bairro("")
+                                .localidade("   ")
+                                .uf("")
+                                .build();
+
+                        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
+                        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
+                        when(viaCepService.buscarCep(any())).thenReturn(response);
+                        when(contaCorrenteService.criarContaPara(any()))
+                                .thenReturn(ContaCorrente.builder().id(10L).numeroConta("99999").saldo(BigDecimal.ZERO).tipoTitular(TipoTitularConta.CLIENTE).build());
+                        when(clienteRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+                        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+                        ClienteResponseDTO resultado = service.criarCliente(request);
+
+                        assertNotNull(resultado);
+
+                        ArgumentCaptor<Cliente> captor = ArgumentCaptor.forClass(Cliente.class);
+                        verify(clienteRepository).save(captor.capture());
+
+                        Cliente salvo = captor.getValue();
+                        assertEquals("Rua do Cliente", salvo.getEndereco().getRua());
+                        assertEquals("Bairro do Cliente", salvo.getEndereco().getBairro());
+                        assertEquals("São Paulo", salvo.getEndereco().getCidade());
+                        assertEquals("SP", salvo.getEndereco().getUf());
+                }
+
+                @Test
+                void atualizarCliente_viaCepComCamposEmBranco_usaDadosDoRequest() {
+
+                        ViaCepResponseDTO response = ViaCepResponseDTO.builder()
+                                .cep("01310-100")
+                                .logradouro("   ")
+                                .bairro("")
+                                .localidade("   ")
+                                .uf("")
+                                .build();
+
+                        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+                        when(clienteRepository.existsByCpfAndIdNot(request.getCpf(), 1L)).thenReturn(false);
+                        when(clienteRepository.existsByEmailAndIdNot(request.getEmail(), 1L)).thenReturn(false);
+                        when(viaCepService.buscarCep(any())).thenReturn(response);
+                        when(clienteRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+                        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+                        ClienteResponseDTO resultado = service.atualizarCliente(1L, request);
+
+                        assertNotNull(resultado);
+
+                        ArgumentCaptor<Cliente> captor = ArgumentCaptor.forClass(Cliente.class);
+                        verify(clienteRepository).save(captor.capture());
+
+                        Cliente atualizado = captor.getValue();
+                        assertEquals("Rua do Cliente", atualizado.getEndereco().getRua());
+                        assertEquals("Bairro do Cliente", atualizado.getEndereco().getBairro());
+                        assertEquals("São Paulo", atualizado.getEndereco().getCidade());
+                        assertEquals("SP", atualizado.getEndereco().getUf());
+                }
+
+                @Test
+                void criarCliente_viaCepComCidadeEUfNulos_usaDadosDoRequest() {
+
+                        ViaCepResponseDTO response = ViaCepResponseDTO.builder()
+                                .cep("01310-100")
+                                .logradouro("Avenida Paulista")
+                                .bairro("Bela Vista")
+                                .localidade(null)
+                                .uf(null)
+                                .build();
+
+                        when(clienteRepository.findByCpf(any())).thenReturn(Optional.empty());
+                        when(clienteRepository.findByEmail(any())).thenReturn(Optional.empty());
+                        when(viaCepService.buscarCep(any())).thenReturn(response);
+                        when(contaCorrenteService.criarContaPara(any()))
+                                .thenReturn(ContaCorrente.builder().id(10L).numeroConta("99999").saldo(BigDecimal.ZERO).tipoTitular(TipoTitularConta.CLIENTE).build());
+                        when(clienteRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+                        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+                        ClienteResponseDTO resultado = service.criarCliente(request);
+
+                        assertNotNull(resultado);
+
+                        ArgumentCaptor<Cliente> captor = ArgumentCaptor.forClass(Cliente.class);
+                        verify(clienteRepository).save(captor.capture());
+
+                        Cliente salvo = captor.getValue();
+                        assertEquals("São Paulo", salvo.getEndereco().getCidade());
+                        assertEquals("SP", salvo.getEndereco().getUf());
+                }
+
+                @Test
+                void atualizarCliente_viaCepComCidadeEUfNulos_usaDadosDoRequest() {
+
+                        ViaCepResponseDTO response = ViaCepResponseDTO.builder()
+                                .cep("01310-100")
+                                .logradouro("Avenida Paulista")
+                                .bairro("Bela Vista")
+                                .localidade(null)
+                                .uf(null)
+                                .build();
+
+                        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+                        when(clienteRepository.existsByCpfAndIdNot(request.getCpf(), 1L)).thenReturn(false);
+                        when(clienteRepository.existsByEmailAndIdNot(request.getEmail(), 1L)).thenReturn(false);
+                        when(viaCepService.buscarCep(any())).thenReturn(response);
+                        when(clienteRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+                        when(clienteMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+                        ClienteResponseDTO resultado = service.atualizarCliente(1L, request);
+
+                        assertNotNull(resultado);
+
+                        ArgumentCaptor<Cliente> captor = ArgumentCaptor.forClass(Cliente.class);
+                        verify(clienteRepository).save(captor.capture());
+
+                        Cliente atualizado = captor.getValue();
+                        assertEquals("São Paulo", atualizado.getEndereco().getCidade());
+                        assertEquals("SP", atualizado.getEndereco().getUf());
+                }
+
         @Test
         void criarCliente_cepNulo_lancaExcecao() {
 

@@ -1,5 +1,9 @@
 package com.accenture.loja.conta.service;
 
+import com.accenture.loja.cliente.model.Cliente;
+import com.accenture.loja.cliente.repository.ClienteRepository;
+import com.accenture.loja.empresa.model.Empresa;
+import com.accenture.loja.empresa.repository.EmpresaRepository;
 import com.accenture.loja.conta.dto.ContaCorrenteResponseDTO;
 import com.accenture.loja.conta.mapper.ContaCorrenteMapper;
 import com.accenture.loja.conta.model.ContaCorrente;
@@ -7,27 +11,27 @@ import com.accenture.loja.conta.repository.ContaCorrenteRepository;
 import com.accenture.loja.shared.enums.TipoTitularConta;
 import com.accenture.loja.shared.exception.BusinessException;
 import com.accenture.loja.shared.exception.RegraNegocioException;
+import com.accenture.loja.shared.util.GeradorNumeroConta;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Random;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ContaCorrenteService {
 
-    private static final Random RANDOM = new Random();
-
     private final ContaCorrenteRepository contaCorrenteRepository;
     private final ContaCorrenteMapper contaCorrenteMapper;
+    private final ClienteRepository clienteRepository;
+    private final EmpresaRepository empresaRepository;
 
     public List<ContaCorrenteResponseDTO> listarContas() {
         return contaCorrenteRepository.findAll()
                 .stream()
-                .map(contaCorrenteMapper::toResponseDTO)
+                .map(this::toResponseDTOComTitular)
                 .toList();
     }
 
@@ -35,7 +39,7 @@ public class ContaCorrenteService {
         ContaCorrente conta = contaCorrenteRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Conta não encontrada"));
 
-        return contaCorrenteMapper.toResponseDTO(conta);
+        return toResponseDTOComTitular(conta);
     }
 
     public ContaCorrente buscarContaEmpresa() {
@@ -61,7 +65,7 @@ public class ContaCorrenteService {
 
     public ContaCorrente criarContaPara(TipoTitularConta tipoTitular) {
         return ContaCorrente.builder()
-                .numeroConta(gerarNumeroConta())
+                .numeroConta(GeradorNumeroConta.gerarNumeroConta())
                 .saldo(BigDecimal.ZERO)
                 .tipoTitular(tipoTitular)
                 .build();
@@ -92,7 +96,28 @@ public class ContaCorrenteService {
         return contaCorrenteRepository.save(conta);
     }
 
-    private String gerarNumeroConta() {
-        return String.valueOf(10000 + RANDOM.nextInt(90000));
+    private ContaCorrenteResponseDTO toResponseDTOComTitular(ContaCorrente conta) {
+        ContaCorrenteResponseDTO dto = contaCorrenteMapper.toResponseDTO(conta);
+
+        if (dto != null) {
+            dto.setTitularNome(resolverTitularNome(conta));
+        }
+
+        return dto;
+    }
+
+    private String resolverTitularNome(ContaCorrente conta) {
+        if (conta == null || conta.getId() == null) {
+            return null;
+        }
+
+        return switch (conta.getTipoTitular()) {
+            case CLIENTE -> clienteRepository.findByContaCorrente_Id(conta.getId())
+                    .map(Cliente::getNome)
+                    .orElse(null);
+            case EMPRESA -> empresaRepository.findByContaCorrente_Id(conta.getId())
+                    .map(Empresa::getRazaoSocial)
+                    .orElse(null);
+        };
     }
 }

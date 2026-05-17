@@ -21,6 +21,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { analiseRiscoService } from '../../services/analiseRiscoService';
 import { toast } from 'react-toastify';
 import { PageLayout } from '../../components/ui/PageLayout';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -31,9 +32,9 @@ import { pedidoService } from '../../services/pedidoService';
 import { clienteService } from '../../services/clienteService';
 import { produtoService } from '../../services/produtoService';
 import type { Pedido } from '../../types/Pedido';
-import type { RiskLevel } from '../../types/AnaliseRisco';
 import type { Cliente } from '../../types/Cliente';
 import type { Produto } from '../../types/Produto';
+import type { AnaliseRiscoPedidoResponseDTO } from '../../types/AnaliseRisco';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,26 +62,7 @@ const statusStyles: Record<PedidoStatus, string> = {
   CANCELADO: 'bg-[#2a1118] text-[#d6a2b0] border-[#5a1f35]/40',
 };
 
-const riskStyles: Record<RiskLevel, { label: string; badge: string; dot: string; text: string }> = {
-  BAIXO: {
-    label: 'Baixo risco',
-    badge: 'bg-[#a100ff]/10 text-[#d8b4fe] border-[#a100ff]/20',
-    dot: 'bg-[#a100ff]',
-    text: 'text-[#d8b4fe]',
-  },
-  MEDIO: {
-    label: 'Médio risco',
-    badge: 'bg-[#7c3aed]/10 text-[#c4b5fd] border-[#7c3aed]/20',
-    dot: 'bg-[#7c3aed]',
-    text: 'text-[#c4b5fd]',
-  },
-  ALTO: {
-    label: 'Alto risco',
-    badge: 'bg-[#2a1118] text-[#d6a2b0] border-[#5a1f35]/40',
-    dot: 'bg-[#8b5cf6]',
-    text: 'text-[#d6a2b0]',
-  },
-};
+// removed unused riskStyles to silence TypeScript unused-variable warnings
 
 type ItemCarrinho = { produtoId: number; quantidade: number };
 
@@ -106,6 +88,8 @@ export default function PedidosList() {
   const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
 
   const [selectedPedidoCompleto, setSelectedPedidoCompleto] = useState<Pedido | null>(null); 
+  const [analiseLoading, setAnaliseLoading] = useState(false);
+  const [analiseResultado, setAnaliseResultado] = useState<AnaliseRiscoPedidoResponseDTO | null>(null);
   const [expandedRowId, setExpandedRowId]       = useState<number | null>(null);
   const [searchTerm, setSearchTerm]             = useState('');
   const [productSearch, setProductSearch]       = useState('');
@@ -467,9 +451,11 @@ const openPedidoDetail = async (id: number) => {
           >
             ✕
           </button>
+                {analiseResultado && (
+                  <div className="ml-3 text-sm text-slate-300">Resultado: {analiseResultado.nivelRisco}</div>
+                )}
         </div>
       )}
-
       <PageToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
@@ -1088,7 +1074,27 @@ const openPedidoDetail = async (id: number) => {
               </p>
             </div>
           </div>
-          {renderActionButtons(selectedPedido.status as PedidoStatus, selectedPedido.idPedido)}
+          <div className="flex items-center gap-2">
+            {renderActionButtons(selectedPedido.status as PedidoStatus, selectedPedido.idPedido)}
+            <Button
+              onClick={async () => {
+                setAnaliseLoading(true);
+                try {
+                  const res = await analiseRiscoService.analisarPedido(selectedPedido.idPedido);
+                  setAnaliseResultado(res);
+                } catch (e: unknown) {
+                  const msg = e instanceof Error ? e.message : 'Erro ao analisar o pedido.';
+                  setErroGlobal(msg);
+                } finally {
+                  setAnaliseLoading(false);
+                }
+              }}
+              disabled={analiseLoading}
+              className="h-10 px-4 rounded-xl bg-[#111111] border border-[#a100ff]/20 text-[#d8b4fe] hover:bg-[#161616]"
+            >
+              {analiseLoading ? 'Analisando...' : 'Analisar risco'}
+            </Button>
+          </div>
         </div>
 
         {/* Stats Grid */}

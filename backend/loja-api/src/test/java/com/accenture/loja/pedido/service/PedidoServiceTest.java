@@ -296,6 +296,69 @@ class PedidoServiceTest {
     }
 
     @Test
+    void pagarPedido_clienteSemConta_lancaExcecao() {
+        pedido.setStatus(StatusPedido.RESERVADO);
+        pedido.getCliente().setContaCorrente(null);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        RegraNegocioException exception = assertThrows(RegraNegocioException.class,
+                () -> service.pagarPedido(1L));
+
+        assertEquals("Cliente não possui conta corrente.", exception.getMessage());
+    }
+
+    @Test
+    void pagarPedido_valorFinalNulo_lancaExcecao() {
+        pedido.setStatus(StatusPedido.RESERVADO);
+        pedido.setTotalFinal(null);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
+
+        RegraNegocioException exception = assertThrows(RegraNegocioException.class,
+                () -> service.pagarPedido(1L));
+
+        assertEquals("Valor do pedido deve ser maior que zero.", exception.getMessage());
+    }
+
+    @Test
+    void cancelarPedido_statusReservado_itemSemProduto_lancaExcecao() {
+        pedido.setStatus(StatusPedido.RESERVADO);
+        ItemPedido item = new ItemPedido();
+        item.setProduto(null);
+        item.setQuantidade(1);
+        pedido.getItens().add(item);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        RegraNegocioException exception = assertThrows(RegraNegocioException.class,
+                () -> service.cancelarPedido(1L, "Produto inválido"));
+
+        assertEquals("Produto do item não encontrado.", exception.getMessage());
+    }
+
+    @Test
+    void cancelarPedido_statusPago_semSaldoNaEmpresa_lancaExcecao() {
+        pedido.setStatus(StatusPedido.PAGO);
+        pedido.setTotalFinal(new BigDecimal("1000.00"));
+        contaEmpresa.setSaldo(new BigDecimal("100.00"));
+
+        ItemPedido item = new ItemPedido();
+        item.setProduto(produto);
+        item.setQuantidade(1);
+        pedido.getItens().add(item);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
+
+        RegraNegocioException exception = assertThrows(RegraNegocioException.class,
+                () -> service.cancelarPedido(1L, "Estorno sem saldo"));
+
+        assertEquals("Saldo insuficiente na conta da empresa para realizar estorno.", exception.getMessage());
+    }
+
+    @Test
     void criarPedido_quantidadeNull_lancaExcecao() {
         ItemPedidoRequestDTO itemDto = new ItemPedidoRequestDTO();
         itemDto.setProdutoId(1L);
@@ -369,6 +432,26 @@ class PedidoServiceTest {
     }
 
     @Test
+    void criarPedido_semDesconto_usaZeroComoPadrao() {
+        ItemPedidoRequestDTO itemDto = new ItemPedidoRequestDTO();
+        itemDto.setProdutoId(1L);
+        itemDto.setQuantidade(1);
+
+        CriarPedidoRequestDTO request = new CriarPedidoRequestDTO();
+        request.setClienteId(1L);
+        request.setItens(List.of(itemDto));
+
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
+        when(pedidoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Pedido resultado = service.criarPedido(request);
+
+        assertNotNull(resultado);
+        assertEquals(BigDecimal.ZERO, resultado.getDesconto());
+    }
+
+    @Test
     void reservarPedido_produtoNull_lancaExcecao() {
         ItemPedido item = new ItemPedido();
         item.setProduto(null);
@@ -408,6 +491,15 @@ class PedidoServiceTest {
 
         pedido.getItens().add(item);
 
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+
+        assertThrows(RegraNegocioException.class,
+                () -> service.reservarPedido(1L));
+    }
+
+    @Test
+    void reservarPedido_itensNulos_lancaExcecao() {
+        pedido.setItens(null);
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
 
         assertThrows(RegraNegocioException.class,
@@ -461,6 +553,45 @@ class PedidoServiceTest {
 
         assertThrows(RegraNegocioException.class, () -> service.deletarPedido(1L));
         verify(pedidoRepository, never()).delete(any());
+    }
+
+    @Test
+    void criarPedido_itensNulos_lancaExcecao() {
+        CriarPedidoRequestDTO request = new CriarPedidoRequestDTO();
+        request.setClienteId(1L);
+        request.setItens(null);
+
+        assertThrows(RegraNegocioException.class,
+                () -> service.criarPedido(request));
+    }
+
+    @Test
+    void reservarPedido_naoEncontrado_lancaExcecao() {
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.empty());
+
+        RegraNegocioException exception = assertThrows(RegraNegocioException.class,
+                () -> service.reservarPedido(1L));
+
+        assertEquals("Pedido não encontrado.", exception.getMessage());
+    }
+
+    @Test
+    void cancelarPedido_statusPago_totalFinalNulo_lancaExcecao() {
+        pedido.setStatus(StatusPedido.PAGO);
+        pedido.setTotalFinal(null);
+
+        ItemPedido item = new ItemPedido();
+        item.setProduto(produto);
+        item.setQuantidade(1);
+        pedido.getItens().add(item);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(contaCorrenteService.buscarContaEmpresa()).thenReturn(contaEmpresa);
+
+        RegraNegocioException exception = assertThrows(RegraNegocioException.class,
+                () -> service.cancelarPedido(1L, "Total inválido"));
+
+        assertEquals("Valor do pedido deve ser maior que zero.", exception.getMessage());
     }
 
     @Test

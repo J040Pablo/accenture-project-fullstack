@@ -13,6 +13,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class EnderecoControllerTest {
 
@@ -89,6 +90,33 @@ class EnderecoControllerTest {
         verify(enderecoService).salvar(any(EnderecoRequestDTO.class));
     }
 
+        @Test
+        void deveAtualizarEndereco() {
+
+                EnderecoResponseDTO response = EnderecoResponseDTO.builder()
+                                .id(1L)
+                                .cep("58400000")
+                                .build();
+
+                when(enderecoService.atualizar(eq(1L), any(EnderecoRequestDTO.class)))
+                                .thenReturn(response);
+
+                EnderecoResponseDTO resultado = enderecoController.atualizar(1L, requestDTO);
+
+                assertEquals(1L, resultado.getId());
+                verify(enderecoService).atualizar(eq(1L), any(EnderecoRequestDTO.class));
+        }
+
+        @Test
+        void deveDeletarEndereco() {
+
+                doNothing().when(enderecoService).deletar(1L);
+
+                enderecoController.deletar(1L);
+
+                verify(enderecoService).deletar(1L);
+        }
+
     @Test
     void deveBuscarCep() {
 
@@ -107,4 +135,13 @@ class EnderecoControllerTest {
 
         verify(viaCepService).buscarCep("58400000");
     }
+
+        @Test
+        void devePropagarErroAoBuscarCep() {
+
+                when(viaCepService.buscarCep("00000000"))
+                                .thenThrow(new RuntimeException("falha"));
+
+                assertThrows(RuntimeException.class, () -> enderecoController.buscarCep("00000000"));
+        }
 }
