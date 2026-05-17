@@ -3,6 +3,8 @@ package com.accenture.loja.analiserisco.controller;
 import com.accenture.loja.analiserisco.dto.AnaliseRiscoPedidoResponseDTO;
 import com.accenture.loja.analiserisco.service.AnaliseRiscoPedidoService;
 import com.accenture.loja.shared.enums.NivelRisco;
+import com.accenture.loja.shared.exception.GlobalExceptionHandler;
+import com.accenture.loja.shared.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,7 +35,9 @@ class AnaliseRiscoPedidoControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+            .setControllerAdvice(new GlobalExceptionHandler())
+            .build();
 
         responseDTO = AnaliseRiscoPedidoResponseDTO.builder()
                 .id(1L)
@@ -50,7 +54,7 @@ class AnaliseRiscoPedidoControllerTest {
 
         mockMvc.perform(post("/api/pedidos/1/analisar-risco")
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isCreated());
+                .andExpect(status().isOk());
 
         verify(service).analisarRisco(1L);
     }
@@ -64,5 +68,14 @@ class AnaliseRiscoPedidoControllerTest {
                 .andExpect(status().isOk());
 
         verify(service).buscarPorPedido(1L);
+    }
+
+    @Test
+    void analisarRisco_pedidoNaoEncontrado_retorna404() throws Exception {
+        when(service.analisarRisco(99L)).thenThrow(new ResourceNotFoundException("Pedido não encontrado: 99"));
+
+        mockMvc.perform(post("/api/pedidos/99/analisar-risco")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
     }
 }

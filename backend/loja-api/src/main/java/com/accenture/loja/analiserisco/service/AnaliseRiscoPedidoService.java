@@ -4,19 +4,26 @@ import com.accenture.loja.analiserisco.dto.AnaliseRiscoPedidoResponseDTO;
 import com.accenture.loja.analiserisco.mapper.AnaliseRiscoPedidoMapper;
 import com.accenture.loja.analiserisco.model.AnaliseRiscoPedido;
 import com.accenture.loja.analiserisco.repository.AnaliseRiscoPedidoRepository;
+import com.accenture.loja.conta.model.ContaCorrente;
 import com.accenture.loja.pedido.model.Pedido;
 import com.accenture.loja.pedido.repository.PedidoRepository;
 import com.accenture.loja.shared.enums.NivelRisco;
+import com.accenture.loja.shared.enums.StatusPedido;
 import com.accenture.loja.shared.exception.BusinessException;
 import com.accenture.loja.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class AnaliseRiscoPedidoService {
 
@@ -26,6 +33,7 @@ public class AnaliseRiscoPedidoService {
 
     private static final BigDecimal LIMITE_ALTO_RISCO  = new BigDecimal("10000.00");
     private static final BigDecimal LIMITE_MEDIO_RISCO = new BigDecimal("3000.00");
+    private static final BigDecimal LIMITE_CONSUMO_SALDO_MEDIO = new BigDecimal("0.70");
     private static final int        LIMITE_ITENS       = 50;
     private static final LocalTime  INICIO_MADRUGADA   = LocalTime.of(0, 0);
     private static final LocalTime  FIM_MADRUGADA      = LocalTime.of(6, 0);
@@ -38,38 +46,121 @@ public class AnaliseRiscoPedidoService {
             throw new BusinessException("Este pedido já foi analisado. Nível: " + a.getNivelRisco());
         });
 
-        NivelRisco nivel;
-        String motivo;
-
-        LocalTime agora = LocalTime.now();
+        BigDecimal valorTotal = pedido.getTotalFinal() != null ? pedido.getTotalFinal() : BigDecimal.ZERO;
+        List<String> motivos = new ArrayList<>();
+        boolean riscoCritico = false;
+        boolean riscoModerado = false;
+        LocalTime agora = horaAtual();
         boolean ehMadrugada = agora.isAfter(INICIO_MADRUGADA) && agora.isBefore(FIM_MADRUGADA);
-        int totalItens = pedido.getItens().stream().mapToInt(i -> i.getQuantidade()).sum();
 
-        if (pedido.getTotalFinal().compareTo(LIMITE_ALTO_RISCO) > 0) {
-            nivel  = NivelRisco.ALTO;
-            motivo = "Valor do pedido acima de R$ 10.000,00";
-        } else if (ehMadrugada) {
-            nivel  = NivelRisco.ALTO;
-            motivo = "Compra realizada em horário de madrugada (00h–06h)";
-        } else if (totalItens > LIMITE_ITENS) {
-            nivel  = NivelRisco.MEDIO;
-            motivo = "Quantidade de itens atípica: " + totalItens + " unidades";
-        } else if (pedido.getTotalFinal().compareTo(LIMITE_MEDIO_RISCO) > 0) {
-            nivel  = NivelRisco.MEDIO;
-            motivo = "Valor do pedido entre R$ 3.000,00 e R$ 10.000,00";
+        var cliente = pedido.getCliente();
+        ContaCorrente contaCliente = cliente != null ? cliente.getContaCorrente() : null;
+        List<?> itens = pedido.getItens() != null ? pedido.getItens() : List.of();
+        int totalItens = pedido.getItens() == null
+                ? 0
+                : pedido.getItens().stream().mapToInt(item -> item.getQuantidade() != null ? item.getQuantidade() : 0).sum();
+
+        if (cliente == null) {
+            riscoCritico = true;
+            motivos.add("Pedido sem cliente vinculado");
         } else {
-            nivel  = NivelRisco.BAIXO;
-            motivo = "Pedido dentro dos padrões normais";
+            motivos.add("Cliente: " + cliente.getNome());
         }
+
+        if (contaCliente == null) {
+            riscoCritico = true;
+            motivos.add("Cliente sem conta corrente");
+        }
+
+        if (itens.isEmpty()) {
+            riscoCritico = true;
+            motivos.add("Pedido sem itens");
+        } else if (totalItens > LIMITE_ITENS) {
+            riscoModerado = true;
+            motivos.add("Quantidade de itens atípica: " + totalItens + " unidades");
+        }
+
+        if (valorTotal.compareTo(BigDecimal.ZERO) <= 0) {
+            riscoCritico = true;
+            motivos.add("Pedido com valor zero");
+        } else if (valorTotal.compareTo(LIMITE_ALTO_RISCO) > 0) {
+            riscoCritico = true;
+            motivos.add("Valor do pedido acima de R$ 10.000,00");
+        } else if (valorTotal.compareTo(LIMITE_MEDIO_RISCO) > 0) {
+            riscoModerado = true;
+            motivos.add("Valor do pedido entre R$ 3.000,00 e R$ 10.000,00");
+        }
+
+        if (ehMadrugada) {
+            riscoCritico = true;
+            motivos.add("Compra realizada em horário de madrugada (00h–06h)");
+        }
+
+        if (pedido.getStatus() == null) {
+            riscoCritico = true;
+            motivos.add("Status do pedido não informado");
+        } else if (pedido.getStatus() == StatusPedido.CANCELADO) {
+            riscoCritico = true;
+            motivos.add("Pedido cancelado");
+        } else if (pedido.getStatus() == StatusPedido.PAGO) {
+            motivos.add("Pedido já liquidado");
+        } else if (pedido.getStatus() == StatusPedido.RESERVADO) {
+            motivos.add("Pedido já reservado");
+        } else {
+            motivos.add("Pedido ainda em aberto");
+        }
+
+        if (contaCliente != null && valorTotal.compareTo(BigDecimal.ZERO) > 0) {
+            if (contaCliente.getSaldo().compareTo(valorTotal) < 0) {
+                riscoCritico = true;
+                motivos.add("Saldo insuficiente para o valor do pedido");
+            } else {
+                BigDecimal consumoSaldo = valorTotal.divide(contaCliente.getSaldo(), 4, RoundingMode.HALF_UP);
+                if (consumoSaldo.compareTo(LIMITE_CONSUMO_SALDO_MEDIO) >= 0) {
+                    riscoModerado = true;
+                    motivos.add("Pedido consome grande parte do saldo disponível");
+                }
+            }
+        }
+
+        if (!riscoCritico && !riscoModerado) {
+            motivos.add("Pedido dentro dos padrões normais");
+        }
+
+        NivelRisco nivel = riscoCritico ? NivelRisco.ALTO : (riscoModerado ? NivelRisco.MEDIO : NivelRisco.BAIXO);
+        int score = switch (nivel) {
+            case ALTO -> 90;
+            case MEDIO -> 55;
+            case BAIXO -> 15;
+        };
+
+        String recomendacao = switch (nivel) {
+            case ALTO -> "Bloquear a operação e corrigir as inconsistências antes de seguir.";
+            case MEDIO -> "Revisar saldo, valor e quantidade de itens antes de avançar.";
+            case BAIXO -> "Pedido apto para seguir para reserva.";
+        };
 
         AnaliseRiscoPedido analise = AnaliseRiscoPedido.builder()
                 .pedido(pedido)
+                .clienteId(cliente != null ? cliente.getId() : null)
+                .clienteNome(cliente != null ? cliente.getNome() : null)
+                .valorTotal(valorTotal)
+                .saldoCliente(contaCliente != null ? contaCliente.getSaldo() : null)
+                .statusPedido(pedido.getStatus())
                 .nivelRisco(nivel)
-                .motivo(motivo)
+                .score(score)
+                .motivos(motivos)
+                .motivo(String.join(" | ", motivos))
+                .recomendacao(recomendacao)
+                .aprovado(nivel != NivelRisco.ALTO)
                 .dataAnalise(LocalDateTime.now())
                 .build();
 
         return analiseRiscoPedidoMapper.toResponseDTO(analiseRiscoPedidoRepository.save(analise));
+    }
+
+    protected LocalTime horaAtual() {
+        return LocalTime.now();
     }
 
     public AnaliseRiscoPedidoResponseDTO buscarPorPedido(Long pedidoId) {

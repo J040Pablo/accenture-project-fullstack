@@ -17,6 +17,8 @@ public class ContaCorrenteResponseDTO {
 
     private String numeroConta;
 
+    private String titularNome;
+
     private BigDecimal saldo;
 
     private TipoTitularConta tipoTitular;

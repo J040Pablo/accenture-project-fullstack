@@ -40,33 +40,6 @@ import type { Movimentacao } from '../../types/Movimentacao';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type OrderStatus = 'Pago' | 'Reservado' | 'Cancelado' | 'Pendente';
-type RiskLevel   = 'Baixo' | 'Médio' | 'Alto';
-
-interface Order {
-  id: string;
-  cliente: string;
-  status: OrderStatus;
-  valor: string;
-  risco: RiskLevel;
-  data: string;
-}
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const latestOrders: Order[] = [
-  { id: '#1021', cliente: 'João Silva',   status: 'Pago',      valor: 'R$ 320,00', risco: 'Baixo', data: 'Hoje'   },
-  { id: '#1020', cliente: 'Maria Souza',  status: 'Reservado', valor: 'R$ 180,00', risco: 'Médio', data: 'Hoje'   },
-  { id: '#1019', cliente: 'Ana Costa',    status: 'Cancelado', valor: 'R$ 90,00',  risco: 'Baixo', data: 'Ontem'  },
-  { id: '#1018', cliente: 'Carlos Lima',  status: 'Pendente',  valor: 'R$ 450,00', risco: 'Alto',  data: 'Ontem'  },
-  { id: '#1017', cliente: 'Lucia Ferraz', status: 'Pago',      valor: 'R$ 215,00', risco: 'Baixo', data: '2 dias' },
-];
-
-const lowStockItems = [
-  { name: 'Camiseta Algodão',  units: 3 },
-  { name: 'Mouse Gamer',       units: 2 },
-  { name: 'Teclado Mecânico',  units: 1 },
-  { name: 'Coca Cola 2L',      units: 4 },
-];
 
 function useDashboardData() {
   const [contas, setContas] = useState<Conta[]>([]);
@@ -122,12 +95,6 @@ const statusStyle: Record<OrderStatus, { dot: string; badge: string }> = {
   Cancelado: { dot: 'bg-rose-400/40',  badge: 'bg-[#111111] text-slate-500 border-[#2a2a2a]'            },
 };
 
-
-const riskText: Record<RiskLevel, string> = {
-  Baixo: 'text-slate-400',
-  Médio: 'text-[#c4b5fd]',
-  Alto:  'text-[#a78bfa] font-semibold',
-};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -253,6 +220,26 @@ function MetricCards({ contas, isLoading, error }: { contas: Conta[]; isLoading:
 
 function LatestOrders({ className }: { className?: string }) {
   const navigate = useNavigate();
+  const [pedidos, setPedidos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await (await import('../../services/pedidoService')).pedidoService.listar();
+        if (mounted) setPedidos(data ?? []);
+      } catch (e: any) {
+        if (mounted) setError(e?.message ?? 'Erro ao carregar pedidos');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <Card className={cn("overflow-hidden flex flex-col", className)}>
@@ -289,29 +276,39 @@ function LatestOrders({ className }: { className?: string }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {latestOrders.map((order) => {
-              const ss = statusStyle[order.status];
-              return (
-                <TableRow key={order.id} className="group/row">
-                  <TableCell className="font-mono font-bold text-slate-400 group-hover/row:text-[#a100ff] transition-colors">{order.id}</TableCell>
-                  <TableCell className="text-sm font-medium text-slate-300">{order.cliente}</TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-tighter ${ss.dot.replace('bg-', 'text-')} ${ss.badge}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ss.dot}`} />
-                      {order.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm font-bold text-white">{order.valor}</TableCell>
-                  <TableCell className={cn("text-[11px] font-bold uppercase", riskText[order.risco])}>{order.risco}</TableCell>
-                  <TableCell className="text-[11px] font-medium text-slate-600">{order.data}</TableCell>
-                  <TableCell className="text-right">
-                    <button className="opacity-0 group-hover/row:opacity-100 transition-opacity p-2 rounded-xl hover:bg-white/[0.05] text-slate-600 hover:text-white">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {loading ? (
+              <tr><td colSpan={7} className="p-6 text-center text-slate-500">Carregando pedidos...</td></tr>
+            ) : error ? (
+              <tr><td colSpan={7} className="p-6 text-center text-[#d6a2b0]">{error}</td></tr>
+            ) : pedidos.length === 0 ? (
+              <tr><td colSpan={7} className="p-20 text-center">Nenhum pedido encontrado.</td></tr>
+            ) : (
+              pedidos.map((pedido) => {
+                const statusLabel = (pedido.status ?? '').toString();
+                const statusDisplay = statusLabel === 'PAGO' ? 'Pago' : statusLabel === 'RESERVADO' ? 'Reservado' : statusLabel === 'CANCELADO' ? 'Cancelado' : 'Criado';
+                const ss = statusStyle[(statusDisplay as unknown) as OrderStatus] || statusStyle.Pago;
+                return (
+                  <TableRow key={pedido.idPedido} className="group/row">
+                    <TableCell className="font-mono font-bold text-slate-400 group-hover/row:text-[#a100ff] transition-colors">#{pedido.idPedido}</TableCell>
+                    <TableCell className="text-sm font-medium text-slate-300">Cliente #{pedido.clienteId}</TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-tighter ${ss.dot.replace('bg-', 'text-')} ${ss.badge}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ss.dot}`} />
+                        {statusDisplay}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm font-bold text-white">R$ {Number(pedido.totalFinal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell className={cn("text-[11px] font-bold uppercase", 'text-slate-400')}>-</TableCell>
+                    <TableCell className="text-[11px] font-medium text-slate-600">{new Date(pedido.dataCriacao).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">
+                      <button className="opacity-0 group-hover/row:opacity-100 transition-opacity p-2 rounded-xl hover:bg-white/[0.05] text-slate-600 hover:text-white">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
       </div>
@@ -377,6 +374,28 @@ function FinancialMovements({ movimentacoes, isLoading, error }: { movimentacoes
 
 function LowStockProducts() {
   const navigate = useNavigate();
+  const [produtos, setProdutos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await (await import('../../services/produtoService')).produtoService.listar();
+        if (mounted) setProdutos(data ?? []);
+      } catch (e: any) {
+        if (mounted) setError(e?.message ?? 'Erro ao carregar produtos');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const lowItems = produtos.filter(p => typeof p.estoque === 'number' && p.estoque <= 5);
 
   return (
     <Card className="overflow-hidden flex flex-col">
@@ -396,23 +415,31 @@ function LowStockProducts() {
 
       {/* List */}
       <div className="divide-y divide-[#141414] flex-1">
-        {lowStockItems.map((p) => (
-          <div key={p.name} className="flex items-center justify-between px-6 py-4 hover:bg-white/[0.02] transition-all group">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center group-hover:border-[#a100ff]/20 group-hover:text-[#a100ff] transition-all">
-                <Package className="w-3.5 h-3.5 text-slate-600" />
+        {loading ? (
+          <div className="px-6 py-4 text-slate-400">Carregando produtos...</div>
+        ) : error ? (
+          <div className="px-6 py-4 text-[#d6a2b0]">{error}</div>
+        ) : lowItems.length === 0 ? (
+          <div className="px-6 py-4 text-slate-500">Nenhum produto com estoque baixo.</div>
+        ) : (
+          lowItems.map((p) => (
+            <div key={p.id} className="flex items-center justify-between px-6 py-4 hover:bg-white/[0.02] transition-all group">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center group-hover:border-[#a100ff]/20 group-hover:text-[#a100ff] transition-all">
+                  <Package className="w-3.5 h-3.5 text-slate-600" />
+                </div>
+                <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{p.nome}</span>
               </div>
-              <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{p.name}</span>
+              <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-tighter ${
+                p.estoque <= 2
+                  ? 'bg-rose-500/[0.08] text-rose-400 border-rose-500/20'
+                  : 'bg-[#111111] text-slate-500 border-[#2a2a2a]'
+              }`}>
+                {p.estoque} UN.
+              </span>
             </div>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-tighter ${
-              p.units <= 2
-                ? 'bg-rose-500/[0.08] text-rose-400 border-rose-500/20'
-                : 'bg-[#111111] text-slate-500 border-[#2a2a2a]'
-            }`}>
-              {p.units} UN.
-            </span>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Footer link */}

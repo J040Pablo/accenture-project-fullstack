@@ -4,10 +4,14 @@ import com.accenture.loja.analiserisco.dto.AnaliseRiscoPedidoResponseDTO;
 import com.accenture.loja.analiserisco.mapper.AnaliseRiscoPedidoMapper;
 import com.accenture.loja.analiserisco.model.AnaliseRiscoPedido;
 import com.accenture.loja.analiserisco.repository.AnaliseRiscoPedidoRepository;
+import com.accenture.loja.cliente.model.Cliente;
+import com.accenture.loja.conta.model.ContaCorrente;
 import com.accenture.loja.pedido.model.ItemPedido;
 import com.accenture.loja.pedido.model.Pedido;
 import com.accenture.loja.pedido.repository.PedidoRepository;
 import com.accenture.loja.shared.enums.NivelRisco;
+import com.accenture.loja.shared.enums.StatusPedido;
+import com.accenture.loja.shared.enums.TipoTitularConta;
 import com.accenture.loja.shared.exception.BusinessException;
 import com.accenture.loja.shared.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,29 +47,64 @@ class AnaliseRiscoPedidoServiceTest {
     private AnaliseRiscoPedidoService service;
 
     private Pedido pedido;
+        private Cliente cliente;
+        private ContaCorrente contaCorrente;
     private AnaliseRiscoPedido analise;
     private AnaliseRiscoPedidoResponseDTO responseDTO;
 
     @BeforeEach
     void setUp() {
+        contaCorrente = ContaCorrente.builder()
+            .id(10L)
+            .numeroConta("123456")
+            .saldo(new BigDecimal("1000.00"))
+            .tipoTitular(TipoTitularConta.CLIENTE)
+            .build();
+
+        cliente = Cliente.builder()
+            .id(7L)
+            .nome("Cliente Teste")
+            .contaCorrente(contaCorrente)
+            .build();
+
         pedido = new Pedido();
         pedido.setIdPedido(1L);
         pedido.setTotalFinal(BigDecimal.valueOf(500));
-        pedido.setItens(List.of());
+        pedido.setStatus(StatusPedido.CRIADO);
+        pedido.setCliente(cliente);
+        pedido.setItens(List.of(itemComQuantidade(1)));
 
         analise = AnaliseRiscoPedido.builder()
                 .id(1L)
                 .pedido(pedido)
+            .clienteId(7L)
+            .clienteNome("Cliente Teste")
+            .valorTotal(new BigDecimal("500.00"))
+            .saldoCliente(new BigDecimal("1000.00"))
+            .statusPedido(StatusPedido.CRIADO)
                 .nivelRisco(NivelRisco.BAIXO)
+            .score(15)
+            .motivos(List.of("Pedido dentro dos padrões normais"))
                 .motivo("Pedido dentro dos padrões normais")
+            .recomendacao("Pedido apto para seguir para reserva.")
+            .aprovado(true)
                 .dataAnalise(LocalDateTime.now())
                 .build();
 
         responseDTO = AnaliseRiscoPedidoResponseDTO.builder()
                 .id(1L)
                 .pedidoId(1L)
+            .clienteId(7L)
+            .clienteNome("Cliente Teste")
+            .valorTotal(new BigDecimal("500.00"))
+            .saldoCliente(new BigDecimal("1000.00"))
+            .statusPedido(StatusPedido.CRIADO)
                 .nivelRisco(NivelRisco.BAIXO)
+            .score(15)
+            .motivos(List.of("Pedido dentro dos padrões normais"))
                 .motivo("Pedido dentro dos padrões normais")
+            .recomendacao("Pedido apto para seguir para reserva.")
+            .aprovado(true)
                 .dataAnalise(LocalDateTime.now())
                 .build();
     }
@@ -74,51 +114,51 @@ class AnaliseRiscoPedidoServiceTest {
         pedido.setTotalFinal(new BigDecimal("15000.00"));
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
         when(analiseRiscoPedidoRepository.findByPedidoIdPedido(1L)).thenReturn(Optional.empty());
-        when(analiseRiscoPedidoRepository.save(any())).thenReturn(analise);
+        when(analiseRiscoPedidoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(analiseRiscoPedidoMapper.toResponseDTO(any())).thenReturn(responseDTO);
 
         AnaliseRiscoPedidoResponseDTO result = service.analisarRisco(1L);
 
         assertNotNull(result);
         verify(analiseRiscoPedidoRepository).save(argThat(a ->
-                a.getNivelRisco() == NivelRisco.ALTO &&
-                        a.getMotivo().equals("Valor do pedido acima de R$ 10.000,00")
+            a.getNivelRisco() == NivelRisco.ALTO &&
+                a.getMotivos().contains("Valor do pedido acima de R$ 10.000,00")
         ));
     }
 
     @Test
     void analisarRisco_riscoMedio_valorEntreLimites() {
         pedido.setTotalFinal(new BigDecimal("5000.00"));
+        // garantir saldo suficiente para não acionar regra de risco por saldo insuficiente
+        contaCorrente.setSaldo(new BigDecimal("10000.00"));
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
         when(analiseRiscoPedidoRepository.findByPedidoIdPedido(1L)).thenReturn(Optional.empty());
-        when(analiseRiscoPedidoRepository.save(any())).thenReturn(analise);
+        when(analiseRiscoPedidoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(analiseRiscoPedidoMapper.toResponseDTO(any())).thenReturn(responseDTO);
 
         service.analisarRisco(1L);
 
         verify(analiseRiscoPedidoRepository).save(argThat(a ->
-                a.getNivelRisco() == NivelRisco.MEDIO &&
-                        a.getMotivo().equals("Valor do pedido entre R$ 3.000,00 e R$ 10.000,00")
+            a.getNivelRisco() == NivelRisco.MEDIO &&
+                a.getMotivos().contains("Valor do pedido entre R$ 3.000,00 e R$ 10.000,00")
         ));
     }
 
     @Test
     void analisarRisco_riscoMedio_itensAtipicos() {
         pedido.setTotalFinal(new BigDecimal("500.00"));
-        ItemPedido item = new ItemPedido();
-        item.setQuantidade(51);
-        pedido.setItens(List.of(item));
+        pedido.setItens(List.of(itemComQuantidade(51)));
 
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
         when(analiseRiscoPedidoRepository.findByPedidoIdPedido(1L)).thenReturn(Optional.empty());
-        when(analiseRiscoPedidoRepository.save(any())).thenReturn(analise);
+        when(analiseRiscoPedidoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(analiseRiscoPedidoMapper.toResponseDTO(any())).thenReturn(responseDTO);
 
         service.analisarRisco(1L);
 
         verify(analiseRiscoPedidoRepository).save(argThat(a ->
-                a.getNivelRisco() == NivelRisco.MEDIO &&
-                        a.getMotivo().contains("Quantidade de itens atípica")
+            a.getNivelRisco() == NivelRisco.MEDIO &&
+                a.getMotivos().stream().anyMatch(m -> m.contains("Quantidade de itens atípica"))
         ));
     }
 
@@ -127,14 +167,125 @@ class AnaliseRiscoPedidoServiceTest {
         pedido.setTotalFinal(new BigDecimal("500.00"));
         when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
         when(analiseRiscoPedidoRepository.findByPedidoIdPedido(1L)).thenReturn(Optional.empty());
-        when(analiseRiscoPedidoRepository.save(any())).thenReturn(analise);
+        when(analiseRiscoPedidoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(analiseRiscoPedidoMapper.toResponseDTO(any())).thenReturn(responseDTO);
 
         service.analisarRisco(1L);
 
         verify(analiseRiscoPedidoRepository).save(argThat(a ->
-                a.getNivelRisco() == NivelRisco.BAIXO &&
-                        a.getMotivo().equals("Pedido dentro dos padrões normais")
+            a.getNivelRisco() == NivelRisco.BAIXO &&
+                a.getMotivos().contains("Pedido dentro dos padrões normais")
+        ));
+    }
+
+        @Test
+        void analisarRisco_riscoAlto_saldoInsuficiente() {
+        pedido.setTotalFinal(new BigDecimal("1500.00"));
+        contaCorrente.setSaldo(new BigDecimal("1000.00"));
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(analiseRiscoPedidoRepository.findByPedidoIdPedido(1L)).thenReturn(Optional.empty());
+        when(analiseRiscoPedidoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(analiseRiscoPedidoMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+        service.analisarRisco(1L);
+
+        verify(analiseRiscoPedidoRepository).save(argThat(a ->
+            a.getNivelRisco() == NivelRisco.ALTO &&
+                a.getMotivos().stream().anyMatch(m -> m.contains("Saldo insuficiente"))
+        ));
+        }
+
+        @Test
+        void analisarRisco_riscoAlto_semItens() {
+        pedido.setItens(List.of());
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(analiseRiscoPedidoRepository.findByPedidoIdPedido(1L)).thenReturn(Optional.empty());
+        when(analiseRiscoPedidoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(analiseRiscoPedidoMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+        service.analisarRisco(1L);
+
+        verify(analiseRiscoPedidoRepository).save(argThat(a ->
+            a.getNivelRisco() == NivelRisco.ALTO &&
+                a.getMotivos().contains("Pedido sem itens")
+        ));
+        }
+
+        @Test
+        void analisarRisco_riscoAlto_pedidoCancelado() {
+        pedido.setStatus(StatusPedido.CANCELADO);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(analiseRiscoPedidoRepository.findByPedidoIdPedido(1L)).thenReturn(Optional.empty());
+        when(analiseRiscoPedidoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(analiseRiscoPedidoMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+        service.analisarRisco(1L);
+
+        verify(analiseRiscoPedidoRepository).save(argThat(a ->
+            a.getNivelRisco() == NivelRisco.ALTO &&
+                a.getMotivos().contains("Pedido cancelado")
+        ));
+        }
+
+        @Test
+        void analisarRisco_riscoAlto_semContaCorrente() {
+        cliente.setContaCorrente(null);
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(analiseRiscoPedidoRepository.findByPedidoIdPedido(1L)).thenReturn(Optional.empty());
+        when(analiseRiscoPedidoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(analiseRiscoPedidoMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+        service.analisarRisco(1L);
+
+        verify(analiseRiscoPedidoRepository).save(argThat(a ->
+            a.getNivelRisco() == NivelRisco.ALTO &&
+                a.getMotivos().contains("Cliente sem conta corrente")
+        ));
+        }
+
+    @Test
+    void analisarRisco_riscoAlto_madrugada() {
+        pedido.setTotalFinal(new BigDecimal("500.00"));
+        pedido.setItens(List.of(itemComQuantidade(1)));
+
+        AnaliseRiscoPedidoService spyService = spy(service);
+        doReturn(LocalTime.of(1, 0)).when(spyService).horaAtual();
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(analiseRiscoPedidoRepository.findByPedidoIdPedido(1L)).thenReturn(Optional.empty());
+        when(analiseRiscoPedidoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(analiseRiscoPedidoMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+        spyService.analisarRisco(1L);
+
+        verify(analiseRiscoPedidoRepository).save(argThat(a ->
+            a.getNivelRisco() == NivelRisco.ALTO &&
+                a.getMotivos().contains("Compra realizada em horário de madrugada (00h–06h)")
+        ));
+    }
+
+    @Test
+    void analisarRisco_riscoBaixo_meiaNoite() {
+        pedido.setTotalFinal(new BigDecimal("500.00"));
+        pedido.setItens(List.of(itemComQuantidade(1)));
+
+        AnaliseRiscoPedidoService spyService = spy(service);
+        doReturn(LocalTime.of(0, 0)).when(spyService).horaAtual();
+
+        when(pedidoRepository.findById(1L)).thenReturn(Optional.of(pedido));
+        when(analiseRiscoPedidoRepository.findByPedidoIdPedido(1L)).thenReturn(Optional.empty());
+        when(analiseRiscoPedidoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(analiseRiscoPedidoMapper.toResponseDTO(any())).thenReturn(responseDTO);
+
+        spyService.analisarRisco(1L);
+
+        verify(analiseRiscoPedidoRepository).save(argThat(a ->
+            a.getNivelRisco() == NivelRisco.BAIXO &&
+                a.getMotivos().contains("Pedido dentro dos padrões normais")
         ));
     }
 
@@ -169,5 +320,11 @@ class AnaliseRiscoPedidoServiceTest {
         when(analiseRiscoPedidoRepository.findByPedidoIdPedido(99L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> service.buscarPorPedido(99L));
+    }
+
+    private ItemPedido itemComQuantidade(int quantidade) {
+        ItemPedido item = new ItemPedido();
+        item.setQuantidade(quantidade);
+        return item;
     }
 }

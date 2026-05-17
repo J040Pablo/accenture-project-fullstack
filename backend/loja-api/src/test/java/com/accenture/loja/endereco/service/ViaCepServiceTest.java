@@ -2,6 +2,7 @@ package com.accenture.loja.endereco.service;
 
 import com.accenture.loja.endereco.dto.ViaCepResponseDTO;
 import com.accenture.loja.shared.exception.ResourceNotFoundException;
+import com.accenture.loja.shared.exception.BusinessException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,39 @@ class ViaCepServiceTest {
 	}
 
 	@Test
+	void deveLancarExcecaoQuandoCepForNulo() {
+
+		BusinessException ex = assertThrows(BusinessException.class,
+				() -> viaCepService.buscarCep(null));
+
+		assertEquals("CEP é obrigatório", ex.getMessage());
+
+		verify(restTemplate, never()).getForObject(anyString(), eq(ViaCepResponseDTO.class));
+	}
+
+	@Test
+	void deveLancarExcecaoQuandoCepForEmBranco() {
+
+		BusinessException ex = assertThrows(BusinessException.class,
+				() -> viaCepService.buscarCep("   "));
+
+		assertEquals("CEP é obrigatório", ex.getMessage());
+
+		verify(restTemplate, never()).getForObject(anyString(), eq(ViaCepResponseDTO.class));
+	}
+
+	@Test
+	void deveLancarExcecaoQuandoCepTiverFormatoInvalido() {
+
+		BusinessException ex = assertThrows(BusinessException.class,
+				() -> viaCepService.buscarCep("123"));
+
+		assertEquals("CEP inválido", ex.getMessage());
+
+		verify(restTemplate, never()).getForObject(anyString(), eq(ViaCepResponseDTO.class));
+	}
+
+	@Test
 	void deveLancarExcecaoQuandoViaCepForaDoAr() {
 
 		String cep = "58400000";
@@ -80,6 +114,22 @@ class ViaCepServiceTest {
 				() -> viaCepService.buscarCep(cep));
 
 		assertEquals("Serviço ViaCEP indisponível", ex.getMessage());
+
+		verify(restTemplate, times(1)).getForObject(url, ViaCepResponseDTO.class);
+	}
+
+	@Test
+	void deveLancarExcecaoQuandoViaCepRetornarNull() {
+
+		String cep = "58400000";
+		String url = "https://viacep.com.br/ws/" + cep + "/json/";
+
+		when(restTemplate.getForObject(url, ViaCepResponseDTO.class)).thenReturn(null);
+
+		ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+				() -> viaCepService.buscarCep(cep));
+
+		assertEquals("CEP não encontrado", ex.getMessage());
 
 		verify(restTemplate, times(1)).getForObject(url, ViaCepResponseDTO.class);
 	}
