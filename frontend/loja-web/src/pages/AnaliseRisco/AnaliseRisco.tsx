@@ -39,6 +39,37 @@ const riskStyles: Record<RiskLevel, { label: string; badge: string; dot: string 
   },
 };
 
+function melhorarRecomendacao(
+  recomendacaoOriginal: string,
+  motivos: string[] | undefined,
+  valorTotal: number | undefined,
+  nivelRisco: string | undefined
+): string {
+  if (!motivos || motivos.length === 0) {
+    return recomendacaoOriginal;
+  }
+
+  const motivosLower = motivos.map(m => m.toLowerCase()).join(' ');
+
+  if (motivosLower.includes('saldo') || motivosLower.includes('crédito')) {
+    return 'Alto risco identificado. Verifique o saldo do cliente antes de reservar ou pagar o pedido.';
+  }
+
+  if (valorTotal && valorTotal > 10000) {
+    return 'Pedido de alto valor. Recomenda-se validação manual e análise adicional antes de prosseguir com a operação.';
+  }
+
+  if (motivosLower.includes('criado') || motivosLower.includes('novo')) {
+    return 'Pedido ainda não reservado. A próxima etapa operacional é reservar o estoque para garantir a disponibilidade.';
+  }
+
+  if (nivelRisco === 'ALTO') {
+    return 'Nível de risco elevado identificado. Recomenda-se análise manual antes de prosseguir com a operação.';
+  }
+
+  return recomendacaoOriginal;
+}
+
 export default function AnaliseRiscoProposta() {
   const navigate = useNavigate();
   const [analises, setAnalises] = useState<AnaliseRisco[]>([]);
@@ -114,9 +145,19 @@ export default function AnaliseRiscoProposta() {
   if (analises.length === 0) {
     return (
       <PageLayout>
-        <PageHeader title="Análise de Risco" subtitle="Nenhum pedido para analisar" icon={<ShieldCheck className="w-5 h-5" />} />
-        <Card className="p-12 text-center">
-          <p className="text-slate-500">Não há pedidos no sistema.</p>
+        <PageHeader title="Análise de Risco" subtitle="Nenhum pedido analisado ainda" icon={<ShieldCheck className="w-5 h-5" />} />
+        <Card className="border-[#a100ff]/10 bg-[#a100ff]/5 p-12 text-center space-y-6">
+          <div className="space-y-2">
+            <p className="text-slate-300 font-medium">Nenhum pedido foi analisado ainda.</p>
+            <p className="text-slate-500 text-sm">A análise de risco é gerada a partir da tela de pedidos quando você clica em "Analisar risco" no detalhe do pedido.</p>
+          </div>
+          <Button
+            onClick={() => navigate('/pedidos')}
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-[#a100ff] text-white hover:bg-[#a100ff]/90 transition-colors font-semibold"
+          >
+            Ir para Pedidos
+            <ArrowRight className="w-4 h-4" />
+          </Button>
         </Card>
       </PageLayout>
     );
@@ -207,8 +248,23 @@ export default function AnaliseRiscoProposta() {
               <div className="mt-5 rounded-xl border border-[#a100ff]/20 bg-[#a100ff]/5 p-4">
                 <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">Recomendação</p>
                 <p className="text-sm leading-relaxed text-slate-100 whitespace-normal break-words">
-                  {a.recomendacao}
+                  {melhorarRecomendacao(
+                    a.recomendacao,
+                    a.motivos,
+                    undefined,
+                    a.nivelRisco
+                  )}
                 </p>
+              </div>
+
+              {/* Ação */}
+              <div className="mt-5 flex items-center gap-3">
+                <Button
+                  onClick={() => navigate(`/pedidos?pedidoId=${a.pedidoId}`)}
+                  className="flex-1 h-10 px-4 rounded-xl bg-[#a100ff]/10 border border-[#a100ff]/30 text-[#d8b4fe] hover:bg-[#a100ff]/20 hover:border-[#a100ff]/50 transition-colors font-semibold text-sm"
+                >
+                  Ver Pedido
+                </Button>
               </div>
             </Card>
           );
@@ -217,3 +273,4 @@ export default function AnaliseRiscoProposta() {
     </PageLayout>
   );
 }
+

@@ -10,7 +10,6 @@ import {
   X,
   DollarSign,
   Layers,
-  Archive,
   Sparkles,
   AlertCircle
 } from 'lucide-react';
@@ -40,12 +39,20 @@ const currencyFormatter = new Intl.NumberFormat('pt-BR', {
 const formatarPreco = (preco: number) => currencyFormatter.format(preco);
 const formatarEstoque = (estoque: number) => `${estoque} unidade${estoque === 1 ? '' : 's'}`;
 
-const produtoInicial: ProdutoPayload = {
+type ProdutoFormState = {
+  sku: string;
+  nome: string;
+  categoria: string;
+  preco: string;
+  estoque: string;
+};
+
+const produtoInicial: ProdutoFormState = {
   sku: '',
   nome: '',
   categoria: '',
-  preco: 0,
-  estoque: 0
+  preco: '',
+  estoque: ''
 };
 
 // Tipo para erros de campo
@@ -100,7 +107,7 @@ const ProdutosList: FC = () => {
   const [salvando, setSalvando] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [formProduto, setFormProduto] = useState<ProdutoPayload>(produtoInicial);
+  const [formProduto, setFormProduto] = useState<ProdutoFormState>(produtoInicial);
   const [produtoEditando, setProdutoEditando] = useState<Produto | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'todos' | 'ativos' | 'inativos'>('todos');
@@ -133,7 +140,7 @@ const ProdutosList: FC = () => {
     void carregarProdutos();
   }, []);
 
-  function handleChangeProduto(campo: keyof ProdutoPayload, valor: string) {
+  function handleChangeProduto(campo: keyof ProdutoFormState, valor: string) {
     setFormProduto((prev) => {
       if (campo === 'sku') {
         return {
@@ -144,7 +151,7 @@ const ProdutosList: FC = () => {
 
       return {
         ...prev,
-        [campo]: campo === 'preco' || campo === 'estoque' ? Number(valor) : valor
+        [campo]: valor
       };
     });
 
@@ -162,7 +169,7 @@ const ProdutosList: FC = () => {
     }
   }
 
-  function validarProduto(produto: ProdutoPayload): ErrosCampo {
+  function validarProduto(produto: ProdutoFormState): ErrosCampo {
     const erros: ErrosCampo = {};
 
     // Validar Nome
@@ -181,13 +188,16 @@ const ProdutosList: FC = () => {
       erros.categoria = 'Categoria é obrigatória.';
     }
 
+    const preco = Number(produto.preco);
+    const estoque = Number(produto.estoque);
+
     // Validar Preço
-    if (produto.preco <= 0) {
+    if (!produto.preco.trim() || Number.isNaN(preco) || preco <= 0) {
       erros.preco = 'Preço deve ser maior que zero.';
     }
 
     // Validar Estoque
-    if (produto.estoque < 0) {
+    if (!produto.estoque.trim() || Number.isNaN(estoque) || estoque < 0) {
       erros.estoque = 'Estoque não pode ser negativo.';
     }
 
@@ -211,8 +221,8 @@ const ProdutosList: FC = () => {
       sku: produto.sku,
       nome: produto.nome,
       categoria: produto.categoria,
-      preco: produto.preco,
-      estoque: produto.estoque
+      preco: String(produto.preco),
+      estoque: String(produto.estoque)
     });
     setExpandedId(produto.id);
     setShowCreateForm(false);
@@ -247,8 +257,11 @@ const ProdutosList: FC = () => {
       setSalvando(true);
 
       const payload: ProdutoPayload = {
-        ...formProduto,
-        sku: normalizarSku(formProduto.sku)
+        sku: normalizarSku(formProduto.sku),
+        nome: formProduto.nome,
+        categoria: formProduto.categoria,
+        preco: Number(formProduto.preco),
+        estoque: Number(formProduto.estoque)
       };
 
       await cadastrarProduto(payload);
@@ -307,8 +320,11 @@ const ProdutosList: FC = () => {
       setSalvando(true);
 
       const payload: ProdutoPayload = {
-        ...formProduto,
-        sku: normalizarSku(formProduto.sku)
+        sku: normalizarSku(formProduto.sku),
+        nome: formProduto.nome,
+        categoria: formProduto.categoria,
+        preco: Number(formProduto.preco),
+        estoque: Number(formProduto.estoque)
       };
 
       await atualizarProduto(produtoEditando.id, payload);
@@ -506,7 +522,7 @@ const ProdutosList: FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
+        <div className="grid grid-cols-1 gap-8">
           
           <div className="space-y-8">
             {/* Dados do Produto */}
@@ -596,7 +612,7 @@ const ProdutosList: FC = () => {
                      step="0.01"
                      value={formProduto.preco}
                      onChange={(e) => handleChangeProduto('preco', e.target.value)}
-                     placeholder="0,00"
+                     placeholder="Ex: 19.90"
                      className={`${inputClassName} ${erros.preco ? 'border-red-500 focus:border-red-500' : ''}`}
                    />
                    {erros.preco && (
@@ -611,7 +627,7 @@ const ProdutosList: FC = () => {
                      step="1"
                      value={formProduto.estoque}
                      onChange={(e) => handleChangeProduto('estoque', e.target.value)}
-                     placeholder="Ex: 100 unidades"
+                    placeholder="Ex: 100"
                      className={`${inputClassName} ${erros.estoque ? 'border-red-500 focus:border-red-500' : ''}`}
                    />
                    {erros.estoque && (
@@ -621,31 +637,6 @@ const ProdutosList: FC = () => {
               </div>
             </section>
           </div>
-
-          <aside className="space-y-6">
-             <div className="rounded-2xl border border-[#2a2a2a] bg-[#0b0b0b] p-6">
-                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                   <Archive className="w-3.5 h-3.5" /> MÉTRICAS
-                </div>
-                <div className="space-y-4">
-                   <div className="p-4 rounded-xl bg-[#111111] border border-[#1a1a1a]">
-                      <div className="text-[10px] text-slate-500 mb-1 font-bold uppercase">Status Operacional</div>
-                      <div className="flex items-center gap-2">
-                         <div className="w-2 h-2 rounded-full bg-[#a1ffdb]" />
-                         <span className="text-sm font-bold text-white">{isCreate ? 'Novo produto' : produtoEditando?.ativo ? 'Disponível' : 'Inativo'}</span>
-                      </div>
-                   </div>
-                   <div className="p-4 rounded-xl bg-[#111111] border border-[#1a1a1a]">
-                      <div className="text-[10px] text-slate-500 mb-1 font-bold uppercase">Impacto Financeiro</div>
-                      <div className="text-sm font-black text-[#d8b4fe]">MARGEM PREVISTA 15%</div>
-                   </div>
-                </div>
-             </div>
-
-             <div className="p-5 rounded-2xl border border-[#a100ff]/10 bg-[#a100ff]/[0.02]">
-                <p className="text-[10px] text-slate-500 leading-relaxed italic">Certifique-se de validar o SKU antes de finalizar o cadastro para evitar duplicidade no inventário.</p>
-             </div>
-          </aside>
         </div>
 
         {/* Actions */}
