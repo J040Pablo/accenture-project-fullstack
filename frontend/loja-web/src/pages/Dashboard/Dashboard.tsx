@@ -34,8 +34,17 @@ import {
 import { Card } from '../../components/ui/Card';
 import { contaService } from '../../services/contaService';
 import { movimentacaoService } from '../../services/movimentacaoService';
+import { pedidoService } from '../../services/pedidoService';
+import { produtoService } from '../../services/produtoService';
+import { clienteService } from '../../services/clienteService';
+import { analiseRiscoService } from '../../services/analiseRiscoService';
+
 import type { Conta } from '../../types/Conta';
 import type { Movimentacao } from '../../types/Movimentacao';
+import type { Pedido } from '../../types/Pedido';
+import type { Produto } from '../../types/Produto';
+import type { Cliente } from '../../types/Cliente';
+import type { AnaliseRiscoPedido } from '../../types/AnaliseRisco';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,44 +53,94 @@ type OrderStatus = 'Pago' | 'Reservado' | 'Cancelado' | 'Pendente';
 function useDashboardData() {
   const [contas, setContas] = useState<Conta[]>([]);
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([]);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [analises, setAnalises] = useState<AnaliseRiscoPedido[]>([]);
+  
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMap, setErrorMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function carregarDados() {
       setIsLoading(true);
-      setError(null);
+      setErrorMap({});
 
-      try {
-        const [contasResponse, movimentacoesResponse] = await Promise.allSettled([
-          contaService.listar(),
-          movimentacaoService.listar(),
-        ]);
+      const [contasRes, movsRes, pedidosRes, produtosRes, clientesRes] = await Promise.allSettled([
+        contaService.listar().catch(() => null),
+        movimentacaoService.listar().catch(() => null),
+        pedidoService.listar().catch(() => null),
+        produtoService.listar().catch(() => null),
+        clienteService.listar().catch(() => null),
+      ]);
 
-        if (contasResponse.status === 'fulfilled') {
-          setContas(contasResponse.value.data);
-        }
+      const updatedErrors: Record<string, boolean> = {};
+      let fetchedPedidos: Pedido[] = [];
 
-        if (movimentacoesResponse.status === 'fulfilled') {
-          setMovimentacoes(movimentacoesResponse.value.data);
-        }
-
-        if (contasResponse.status === 'rejected' && movimentacoesResponse.status === 'rejected') {
-          setError('Não foi possível carregar os dados do dashboard.');
-        } else if (contasResponse.status === 'rejected') {
-          setError('Não foi possível carregar as contas.');
-        } else if (movimentacoesResponse.status === 'rejected') {
-          setError('Não foi possível carregar as movimentações.');
-        }
-      } finally {
-        setIsLoading(false);
+      // Resolvers
+      if (contasRes.status === 'fulfilled' && contasRes.value) {
+        setContas(contasRes.value.data ?? contasRes.value ?? []);
+      } else {
+        updatedErrors.contas = true;
       }
+
+      if (movsRes.status === 'fulfilled' && movsRes.value) {
+        setMovimentacoes(movsRes.value.data ?? movsRes.value ?? []);
+      } else {
+        updatedErrors.movimentacoes = true;
+      }
+
+      if (pedidosRes.status === 'fulfilled' && pedidosRes.value) {
+        fetchedPedidos = (pedidosRes.value as any).data ?? pedidosRes.value ?? [];
+        setPedidos(fetchedPedidos);
+      } else {
+        updatedErrors.pedidos = true;
+      }
+
+      if (produtosRes.status === 'fulfilled' && produtosRes.value) {
+        setProdutos((produtosRes.value as any).data ?? produtosRes.value ?? []);
+      } else {
+        updatedErrors.produtos = true;
+      }
+
+      if (clientesRes.status === 'fulfilled' && clientesRes.value) {
+        setClientes((clientesRes.value as any).data ?? clientesRes.value ?? []);
+      } else {
+        updatedErrors.clientes = true;
+      }
+
+      // Analises de Risco fallback
+      if (fetchedPedidos.length > 0) {
+        try {
+          const analisesProm = fetchedPedidos.map(async (p) => {
+            try {
+              return await analiseRiscoService.buscarPorPedido(p.idPedido!);
+            } catch (err: any) {
+              if (err?.response?.status === 404 || err?.status === 404 || err?.message?.includes("404")) {
+                return await analiseRiscoService.analisarPedido(p.idPedido!);
+              }
+              try {
+                return await analiseRiscoService.analisarPedido(p.idPedido!);
+              } catch {
+                 return null;
+              }
+            }
+          });
+          const results = await Promise.all(analisesProm);
+          setAnalises(results.filter(Boolean) as AnaliseRiscoPedido[]);
+        } catch {
+          updatedErrors.analises = true;
+        }
+      }
+
+      setErrorMap(updatedErrors);
+      setIsLoading(false);
     }
 
     carregarDados();
   }, []);
 
-  return { contas, movimentacoes, isLoading, error };
+  return { contas, movimentacoes, pedidos, produtos, clientes, analises, isLoading, errorMap };
 }
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
@@ -167,19 +226,89 @@ interface MetricDef {
   hint?: string;
 }
 
-function MetricCards({ contas, isLoading, error }: { contas: Conta[]; isLoading: boolean; error: string | null }) {
-  const empresa = contas.find((conta) => conta.tipoTitular === 'EMPRESA');
-  const saldoEmpresa = !error && empresa ? `R$ ${empresa.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '--';
+function MetricCards({
+  contas,
+  pedidos,
+  produtos,
+  clientes,
+  analises,
+  isLoading,
+  errorMap
+}: {
+  contas: Conta[];
+  pedidos: Pedido[];
+  produtos: Produto[];
+  clientes: Cliente[];
+  analises: AnaliseRiscoPedido[];
+  isLoading: boolean;
+  errorMap: Record<string, boolean>;
+}) {
+  // 1. Saldo da Empresa
+  const empresa = contas.find((conta: any) => conta.tipoTitular === 'EMPRESA' || conta.tipo === 'EMPRESA');
+  const saldoEmpresa = errorMap.contas 
+    ? '--' 
+    : empresa 
+      ? `R$ ${Number(empresa.saldo || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` 
+      : 'R$ 0,00';
+
+  // 2. Pedidos Pagos
+  const pedidosPagosStr = errorMap.pedidos 
+    ? '--' 
+    : pedidos.filter(p => (p.status || '').toString().toUpperCase() === 'PAGO').length.toString();
+
+  // 3. Pedidos Pendentes
+  const pedidosPendentesStr = errorMap.pedidos 
+    ? '--' 
+    : pedidos.filter(p => {
+        const s = (p.status || '').toString().toUpperCase();
+        return s === 'CRIADO' || s === 'RESERVADO' || s === 'PENDENTE' || (s !== 'PAGO' && s !== 'CANCELADO');
+      }).length.toString();
+
+  // 4. Estoque Baixo
+  const estoqueBaixoStr = errorMap.produtos 
+    ? '--' 
+    : produtos.filter(p => Number(p.estoque) <= 5).length.toString();
+
+  // 5. Clientes Cadastrados
+  const clientesStr = errorMap.clientes 
+    ? '--' 
+    : clientes.length.toString();
+
+  // 6. Faturamento do Mês
+  const agora = new Date();
+  const faturamentoMesVal = pedidos.filter(p => {
+    if ((p.status || '').toString().toUpperCase() !== 'PAGO') return false;
+    const dataReg = (p as any).dataCriacao || (p as any).dataPedido || (p as any).dataAtualizacao || (p as any).criadoEm;
+    if (!dataReg) return false;
+    const dt = new Date(dataReg);
+    if (Number.isNaN(dt.getTime())) return false;
+    return dt.getMonth() === agora.getMonth() && dt.getFullYear() === agora.getFullYear();
+  }).reduce((acc, p: any) => acc + Number(p.totalFinal ?? p.valorTotal ?? p.valorFinal ?? p.total ?? 0), 0);
+
+  const faturamentoMesStr = errorMap.pedidos 
+    ? '--' 
+    : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(faturamentoMesVal);
+
+  // 7. Pedidos Cancelados
+  const pedidosCanceladosStr = errorMap.pedidos 
+    ? '--' 
+    : pedidos.filter(p => (p.status || '').toString().toUpperCase() === 'CANCELADO').length.toString();
+
+  // 8. Risco Médio
+  const riscoStr = errorMap.analises 
+    ? '--' 
+    : analises.filter((a: any) => a.nivelRisco === 'MEDIO' || a.nivelRisco === 'ALTO').length.toString();
+
 
   const metrics: MetricDef[] = [
     { title: 'Saldo da Empresa',      value: isLoading ? '...' : saldoEmpresa, description: 'Disponível na conta principal',       icon: Wallet,       hint: undefined     },
-    { title: 'Pedidos Pagos',         value: '--',         description: 'Pedidos finalizados no período',      icon: CheckCircle2, hint: undefined     },
-    { title: 'Pedidos Pendentes',     value: '--',          description: 'Aguardando reserva ou pagamento',     icon: Clock,        hint: 'Requer atenção' },
-    { title: 'Estoque Baixo',         value: '--',          description: 'Produtos com reposição necessária',   icon: Package,      hint: 'Verificar hoje' },
-    { title: 'Clientes Cadastrados',  value: '--',        description: 'Total de clientes na base',           icon: Users,        hint: undefined     },
-    { title: 'Faturamento do Mês',    value: '--',  description: 'Receita total do mês atual',          icon: TrendingUp,   hint: undefined     },
-    { title: 'Pedidos Cancelados',    value: '--',          description: 'Cancelamentos no período',            icon: XCircle,      hint: undefined     },
-    { title: 'Risco Médio',           value: '--',      description: 'Pedidos com risco médio ou alto',     icon: AlertTriangle,hint: undefined     },
+    { title: 'Pedidos Pagos',         value: isLoading ? '...' : pedidosPagosStr,         description: 'Pedidos finalizados no período',      icon: CheckCircle2, hint: undefined     },
+    { title: 'Pedidos Pendentes',     value: isLoading ? '...' : pedidosPendentesStr,          description: 'Aguardando reserva ou pagamento',     icon: Clock,        hint: 'Requer atenção' },
+    { title: 'Estoque Baixo',         value: isLoading ? '...' : estoqueBaixoStr,          description: 'Produtos com reposição necessária',   icon: Package,      hint: 'Verificar hoje' },
+    { title: 'Clientes Cadastrados',  value: isLoading ? '...' : clientesStr,        description: 'Total de clientes na base',           icon: Users,        hint: undefined     },
+    { title: 'Faturamento do Mês',    value: isLoading ? '...' : faturamentoMesStr,  description: 'Receita total do mês atual',          icon: TrendingUp,   hint: undefined     },
+    { title: 'Pedidos Cancelados',    value: isLoading ? '...' : pedidosCanceladosStr,          description: 'Cancelamentos no período',            icon: XCircle,      hint: undefined     },
+    { title: 'Risco Médio',           value: isLoading ? '...' : riscoStr,      description: 'Pedidos com risco médio ou alto',     icon: AlertTriangle,hint: undefined     },
   ];
 
   return (
@@ -461,7 +590,7 @@ function LowStockProducts() {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const { contas, movimentacoes, isLoading, error } = useDashboardData();
+  const { contas, movimentacoes, pedidos, produtos, clientes, analises, isLoading, errorMap } = useDashboardData();
 
   return (
     <PageLayout>
@@ -480,7 +609,15 @@ export default function Dashboard() {
       <StatusBadges />
 
       {/* 3. Metric cards — 2 cols on mobile, 4 on desktop */}
-      <MetricCards contas={contas} isLoading={isLoading} error={error} />
+      <MetricCards 
+        contas={contas} 
+        pedidos={pedidos} 
+        produtos={produtos} 
+        clientes={clientes} 
+        analises={analises} 
+        isLoading={isLoading} 
+        errorMap={errorMap} 
+      />
 
       <div className="flex items-center justify-between gap-4 mt-2">
         <div>
@@ -513,7 +650,7 @@ export default function Dashboard() {
 
       {/* 6. Financial movements + Low stock */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <FinancialMovements movimentacoes={movimentacoes} isLoading={isLoading} error={error} />
+        <FinancialMovements movimentacoes={movimentacoes} isLoading={isLoading} error={errorMap.movimentacoes ? "Erro ao carregar movimentações" : null} />
         <LowStockProducts />
       </div>
 
