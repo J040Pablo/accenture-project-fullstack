@@ -88,8 +88,10 @@ class DataLoaderTest {
 
         ContaCorrente contaCliente1 = criarConta("11111", new BigDecimal("5000.00"));
         ContaCorrente contaCliente2 = criarConta("22222", new BigDecimal("100.00"));
+
         when(contaCorrenteService.criarContaPara(TipoTitularConta.CLIENTE))
                 .thenReturn(contaCliente1, contaCliente2);
+
         when(empresaService.cadastrar(any(EmpresaRequestDTO.class)))
                 .thenReturn(null);
 
@@ -146,7 +148,9 @@ class DataLoaderTest {
         when(clienteRepository.findByCpf("98765432109")).thenReturn(Optional.empty());
 
         ContaCorrente contaCliente = criarConta("33333", new BigDecimal("100.00"));
-        when(contaCorrenteService.criarContaPara(TipoTitularConta.CLIENTE)).thenReturn(contaCliente);
+
+        when(contaCorrenteService.criarContaPara(TipoTitularConta.CLIENTE))
+                .thenReturn(contaCliente);
 
         dataLoader.run();
 
@@ -164,7 +168,9 @@ class DataLoaderTest {
         when(clienteRepository.findByCpf("98765432109")).thenReturn(Optional.of(new Cliente()));
 
         ContaCorrente contaCliente = criarConta("44444", new BigDecimal("5000.00"));
-        when(contaCorrenteService.criarContaPara(TipoTitularConta.CLIENTE)).thenReturn(contaCliente);
+
+        when(contaCorrenteService.criarContaPara(TipoTitularConta.CLIENTE))
+                .thenReturn(contaCliente);
 
         dataLoader.run();
 
@@ -178,10 +184,11 @@ class DataLoaderTest {
         when(empresaRepository.count()).thenReturn(1L);
         when(clienteRepository.count()).thenReturn(1L);
         when(produtoRepository.count()).thenReturn(0L);
-        when(produtoRepository.existsBySku("NB-DELL-001")).thenReturn(true);
-        when(produtoRepository.existsBySku("MOUSE-GAMER-001")).thenReturn(false);
-        when(produtoRepository.existsBySku("TECLADO-MECA-001")).thenReturn(true);
-        when(produtoRepository.existsBySku("MONITOR-LG-001")).thenReturn(false);
+
+        when(produtoRepository.existsBySku("SKU-000001")).thenReturn(true);
+        when(produtoRepository.existsBySku("SKU-000002")).thenReturn(false);
+        when(produtoRepository.existsBySku("SKU-000003")).thenReturn(true);
+        when(produtoRepository.existsBySku("SKU-000004")).thenReturn(false);
 
         dataLoader.run();
 
@@ -196,11 +203,13 @@ class DataLoaderTest {
         when(clienteRepository.findByCpf("12345678901")).thenReturn(Optional.empty());
         when(clienteRepository.findByCpf("98765432109")).thenReturn(Optional.empty());
         when(produtoRepository.existsBySku(anyString())).thenReturn(false);
+
         when(empresaService.cadastrar(any(EmpresaRequestDTO.class)))
                 .thenThrow(new RuntimeException("falha no cadastro"));
 
         ContaCorrente contaCliente1 = criarConta("11111", new BigDecimal("5000.00"));
         ContaCorrente contaCliente2 = criarConta("22222", new BigDecimal("100.00"));
+
         when(contaCorrenteService.criarContaPara(TipoTitularConta.CLIENTE))
                 .thenReturn(contaCliente1, contaCliente2);
 
@@ -217,6 +226,7 @@ class DataLoaderTest {
                 .saldo(saldo)
                 .tipoTitular(TipoTitularConta.CLIENTE)
                 .build();
+
         conta.setId(1L);
         return conta;
     }
