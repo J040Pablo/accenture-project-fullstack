@@ -2,10 +2,10 @@ package com.accenture.loja.produto.controller;
 
 import com.accenture.loja.produto.dto.ProdutoRequestDTO;
 import com.accenture.loja.produto.dto.EstoqueRequestDTO;
-import com.accenture.loja.produto.dto.ProdutoRequestDTO;
 import com.accenture.loja.produto.dto.ProdutoResponseDTO;
 import com.accenture.loja.produto.service.ProdutoService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,16 +32,19 @@ public class ProdutoController {
     }
 
     @GetMapping
+        @Operation(summary = "Lista todos os produtos")
     public ResponseEntity<List<ProdutoResponseDTO>> listar() {
         return ResponseEntity.ok(produtoService.listar());
     }
 
     @GetMapping("/{id}")
+        @Operation(summary = "Busca um produto por ID")
     public ResponseEntity<ProdutoResponseDTO> buscarPorId(@PathVariable Long id) {
         return ResponseEntity.ok(produtoService.buscarPorId(id));
     }
 
     @PutMapping("/{id}")
+        @Operation(summary = "Atualiza os dados básicos de um produto")
     public ResponseEntity<ProdutoResponseDTO> atualizar(
             @PathVariable Long id,
             @RequestBody @Valid ProdutoRequestDTO request
@@ -51,10 +54,23 @@ public class ProdutoController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> inativar(@PathVariable Long id) {
-        produtoService.inativar(id);
+        @Operation(summary = "Exclui definitivamente um produto")
+        public ResponseEntity<Void> deletar(@PathVariable Long id) {
+            produtoService.deletarProduto(id);
         return ResponseEntity.noContent().build();
     }
+
+        @PatchMapping("/{id}/ativar")
+        @Operation(summary = "Ativa um produto")
+        public ResponseEntity<ProdutoResponseDTO> ativar(@PathVariable Long id) {
+            return ResponseEntity.ok(produtoService.ativarProduto(id));
+        }
+
+        @PatchMapping("/{id}/inativar")
+        @Operation(summary = "Inativa um produto")
+        public ResponseEntity<ProdutoResponseDTO> inativar(@PathVariable Long id) {
+            return ResponseEntity.ok(produtoService.inativarProduto(id));
+        }
 
     @PostMapping("/{id}/baixar-estoque")
     public ResponseEntity<Void> baixarEstoque(

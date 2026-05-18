@@ -17,13 +17,14 @@ public class Cliente {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-
+	
+	@Column
 	private String nome;
 
-	@Column(unique = true)
+	@Column(unique = true, nullable = false)
 	private String cpf;
 
-	@Column(unique = true)
+	@Column(unique = true, nullable = false)
 	private String email;
 
 	@OneToOne(cascade = CascadeType.ALL)

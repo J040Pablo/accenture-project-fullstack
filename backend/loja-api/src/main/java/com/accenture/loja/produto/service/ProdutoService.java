@@ -4,6 +4,8 @@ import com.accenture.loja.produto.dto.ProdutoRequestDTO;
 import com.accenture.loja.produto.dto.ProdutoResponseDTO;
 import com.accenture.loja.produto.model.Produto;
 import com.accenture.loja.produto.repository.ProdutoRepository;
+import com.accenture.loja.shared.exception.BusinessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +22,10 @@ public class ProdutoService {
 
     @Transactional
     public ProdutoResponseDTO cadastrar(ProdutoRequestDTO request) {
+        validarProdutoRequest(request);
+
         if (produtoRepository.existsBySku(request.sku())) {
-            throw new IllegalArgumentException("SKU já cadastrado");
+            throw new BusinessException("SKU já cadastrado");
         }
 
         Produto produto = new Produto(
@@ -33,7 +37,6 @@ public class ProdutoService {
         );
 
         Produto produtoSalvo = produtoRepository.save(produto);
-
         return toResponseDTO(produtoSalvo);
     }
 
@@ -45,42 +48,102 @@ public class ProdutoService {
     }
 
     public ProdutoResponseDTO buscarPorId(Long id) {
-        Produto produto = produtoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado"));
+        Produto produto = buscarProdutoPorId(id);
+        return toResponseDTO(produto);
+    }
+
+    @Transactional
+    public ProdutoResponseDTO atualizar(Long id, ProdutoRequestDTO request) {
+        validarProdutoRequest(request);
+
+        Produto produto = buscarProdutoPorId(id);
+
+        if (!produto.getSku().equals(request.sku()) && produtoRepository.existsBySku(request.sku())) {
+            throw new BusinessException("SKU já cadastrado");
+        }
+
+        produto.setSku(request.sku());
+        produto.setNome(request.nome());
+        produto.setCategoria(request.categoria());
+        produto.setPreco(request.preco());
+        produto.setEstoque(request.estoque());
 
         return toResponseDTO(produto);
     }
 
     @Transactional
-    public void baixarEstoque(Long produtoId, Integer quantidade) {
-        Produto produto = produtoRepository.findById(produtoId)
-                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado"));
+    public ProdutoResponseDTO ativarProduto(Long id) {
+        Produto produto = buscarProdutoPorId(id);
+        produto.setAtivo(true);
+        return toResponseDTO(produtoRepository.save(produto));
+    }
 
-        if (!produto.getAtivo()) {
-            throw new IllegalStateException("Produto inativo não pode ser vendido");
+    @Transactional
+    public ProdutoResponseDTO inativarProduto(Long id) {
+        Produto produto = buscarProdutoPorId(id);
+        produto.setAtivo(false);
+        return toResponseDTO(produtoRepository.save(produto));
+    }
+
+    @Transactional
+    public void deletarProduto(Long id) {
+        Produto produto = buscarProdutoPorId(id);
+
+        try {
+            produtoRepository.delete(produto);
+            produtoRepository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(
+                    "Produto não pode ser excluído pois possui vínculo com pedidos. Inative o produto em vez de excluir."
+            );
         }
+    }
 
-        if (quantidade == null || quantidade <= 0) {
-            throw new IllegalArgumentException("Quantidade deve ser maior que zero");
+    @Transactional
+    public void baixarEstoque(Long produtoId, Integer quantidade) {
+        validarQuantidade(quantidade);
+
+        Produto produto = buscarProdutoPorId(produtoId);
+
+        if (!Boolean.TRUE.equals(produto.getAtivo())) {
+            throw new BusinessException("Produto inativo não pode ser vendido");
         }
 
         if (produto.getEstoque() < quantidade) {
-            throw new IllegalStateException("Estoque insuficiente");
+            throw new BusinessException("Estoque insuficiente");
         }
 
-        produto.setEstoque(produto.getEstoque() - quantidade);
+        int novoEstoque = produto.getEstoque() - quantidade;
+        produto.setEstoque(novoEstoque);
     }
 
     @Transactional
     public void devolverEstoque(Long produtoId, Integer quantidade) {
-        Produto produto = produtoRepository.findById(produtoId)
-                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado"));
+        validarQuantidade(quantidade);
 
+        Produto produto = buscarProdutoPorId(produtoId);
+        produto.setEstoque(produto.getEstoque() + quantidade);
+    }
+
+    public Produto buscarProdutoPorId(Long id) {
+        return produtoRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Produto não encontrado"));
+    }
+
+    private void validarQuantidade(Integer quantidade) {
         if (quantidade == null || quantidade <= 0) {
-            throw new IllegalArgumentException("Quantidade deve ser maior que zero");
+            throw new BusinessException("Quantidade deve ser maior que zero");
+        }
+    }
+
+    private void validarProdutoRequest(ProdutoRequestDTO request) {
+        if (request.preco() == null || request.preco().signum() <= 0) {
+            throw new BusinessException("Preço deve ser maior que zero");
         }
 
-        produto.setEstoque(produto.getEstoque() + quantidade);
+        if (request.estoque() == null || request.estoque() < 0) {
+            throw new BusinessException("Estoque não pode ser negativo");
+        }
     }
 
     private ProdutoResponseDTO toResponseDTO(Produto produto) {
@@ -93,32 +156,5 @@ public class ProdutoService {
                 produto.getEstoque(),
                 produto.getAtivo()
         );
-    }
-    
-    @Transactional
-    public ProdutoResponseDTO atualizar(Long id, ProdutoRequestDTO request) {
-        Produto produto = produtoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado"));
-        
-        // atualiza o produto mantendo o mesmo SKU, mas bloqueia se tentar usar o SKU de outro produto.
-        if (!produto.getSku().equals(request.sku()) && produtoRepository.existsBySku(request.sku())) {
-            throw new IllegalArgumentException("SKU já cadastrado");
-        }
-
-        produto.setSku(request.sku());
-        produto.setNome(request.nome());
-        produto.setCategoria(request.categoria());
-        produto.setPreco(request.preco());
-        produto.setEstoque(request.estoque());
-
-        return toResponseDTO(produto);
-    }
-    
-    @Transactional
-    public void inativar(Long id) {
-        Produto produto = produtoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado"));
-
-        produto.setAtivo(false);
     }
 }
